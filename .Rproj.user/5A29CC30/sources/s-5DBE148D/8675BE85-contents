@@ -26,6 +26,9 @@ TYPE_ORDINAL      <- "ORDINAL"       # field is continuous numeric
 TYPE_SYMBOLIC     <- "SYMBOLIC"      # field is a string
 TYPE_NUMERIC      <- "NUMERIC"       # field is initially a numeric
 TYPE_IGNORE       <- "IGNORE"        # field is not encoded
+DISCREET_BINS     <- 8               # Number of empty bins to determine discreet
+SCALE_DATASET     <- TRUE                 # Set to true to scale dataset before ML stage
+OUTLIER_CONF      <- 0.99                 # Confidence p-value for outlier detection
 
 # Define and then load the libraries used in this project
 # Library from CRAN     Version
@@ -78,6 +81,41 @@ cars <- subset(cars, select = -c(id,url,county,regionurl,imageurl,lat,long))
 # Print Field Types
 field_types = NPREPROCESSING_initialFieldType(cars)
 print(field_types)
+field_types = NPREPROCESSING_initialFieldType(cars)
+print(field_types)
+
+print(length(field_types))
+
+# Question 2
+numeric_fields = c()
+symbolic_fields = c()
+
+for(i in 1:length(field_types)) {
+  if(field_types[i] == TYPE_NUMERIC) {
+    numeric_fields = append(numeric_fields, names(cars)[i])
+  } else if(field_types[i] == TYPE_SYMBOLIC) {
+    symbolic_fields = append(symbolic_fields, names(cars)[i])
+  }
+}
+
+
+print(paste("NUMERIC FIELDS=", length(numeric_fields)))
+print(numeric_fields)
+print(paste("SYMBOLIC FIELDS=", length(symbolic_fields)))
+print(symbolic_fields)
+
+# Question 3
+field_types1 = NPREPROCESSING_discreetNumeric(cars, field_types, DISCREET_BINS)
+print(field_types1)
+results = data.frame(field=names(cars),initial=field_types,types1=field_types1)
+print(formattable::formattable(results))
+
+# Question 4
+ordinals = cars[,which(field_types1==TYPE_ORDINAL)]
+ordinals = NPREPROCESSING_outlier(ordinals, OUTLIER_CONF)
+
+# Question 6
+zscaled = as.data.frame(scale(ordinals, TRUE, TRUE))
 
 
 
