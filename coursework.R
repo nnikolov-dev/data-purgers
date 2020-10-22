@@ -41,6 +41,7 @@ MYLIBRARIES<-c("outliers",
                "corrplot",
                "MASS",
                "formattable",
+               "ggplot2",
                "stats",
                "PerformanceAnalytics",
                "caret")
@@ -58,29 +59,55 @@ MYLIBRARIES<-c("outliers",
 # Loads the libraries
 library(pacman)
 pacman::p_load(char=MYLIBRARIES,install=TRUE,character.only=TRUE)
-
-#Load additional R script files provide for this lab
+# Set scientific notation to a sensible number of digits
+options(scipen = 8)
+# Load additional R script files provide for this lab
 source("dataPrep.R")
 set.seed(123)
 
 # Loading the data
-cars <- NreadDataset(DATASET_FILENAME)
+carsInitial <- NreadDataset(DATASET_FILENAME)
+cars <- carsInitial
 # cars <- NPREPROCESSING_prettyDataset(cars)
 
 # Removing the " cylinders" part of the column
 # and converting it to numeric
 cars$cylinders <- as.numeric(substr(cars$cylinders,1,nchar(cars$cylinders)-10))
 
-# Removing useless columns
-# id, url, county, regionurl, imageurl
-cars <- subset(cars, select = -c(id,url,county,regionurl,imageurl,lat,long))
+# Removing useless columns and 
+# id, url, county, regionurl, imageurl, lat, long, description, vin
+cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin))
 
-# Print Field Types
-field_types = NPREPROCESSING_initialFieldType(cars)
-print(field_types)
+# ---------------------------------------------- Data clean-up ----------------------------------------------
+# Remove rows without designated model/manufacturer
+cars <- subset(cars, manufacturer != "" & model != "")
+# Make sure price column is numeric
+cars <- subset(cars, is.numeric(price))
+# Remove rows with invalid or "bad" prices, typically <200
+cars <- subset(cars, price >= 200)
 
+# ---------------------------------------------- Initial plotting ----------------------------------------------
 
+# Plot of number of data before and after clean-up
+totalCarsPreCleanup <- nrow(carsInitial)
+totalCarsPostCleanup <- nrow(cars)
+barplot(c(totalCarsPreCleanup, totalCarsPostCleanup), main = "No. of Rows Before/After Cleanup")
 
+# Condition of cars
+conditionTable <- table(cars$condition)
+barplot(conditionTable, main = "Condition of cars",
+        xlab = "Condition", ylab = "No. of Cars")
 
+# Get the top 10 manufacturers
+mostCommonManufacturers <- tail(names(sort(table(cars$manufacturer))), 10)
 
+# New data frame constructed with only the data of the top 10 manufacturers included
+topTenCarManufacturersDF <- subset(cars, manufacturer %in% mostCommonManufacturers)
 
+# Plot of number of cars for the top 10 manufacturers
+manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
+barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
+        xlab = "Manufacturers", ylab = "No. of Cars")
+
+# Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
+with(cars,plot(odometer,price))
