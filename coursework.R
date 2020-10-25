@@ -40,6 +40,9 @@ TYPE_IGNORE       <- "IGNORE"        # field is not encoded
 MYLIBRARIES<-c("outliers",
                "corrplot",
                "MASS",
+               "data.table",
+               "CatEncoders",
+               "neuralnet",
                "formattable",
                "ggplot2",
                "stats",
@@ -103,6 +106,33 @@ mostCommonManufacturers <- tail(names(sort(table(cars$manufacturer))), 10)
 
 # New data frame constructed with only the data of the top 10 manufacturers included
 topTenCarManufacturersDF <- subset(cars, manufacturer %in% mostCommonManufacturers)
+topTenCarManufacturersDF <- na.omit(topTenCarManufacturersDF)
+
+# Normalise the data
+topTenCarManufacturersDF[] <- lapply(topTenCarManufacturersDF, function(x) if(is.numeric(x)){
+  scale(x, center=TRUE, scale=TRUE)
+} else x)
+
+# transform feature char_1 to int
+fit=LabelEncoder.fit(topTenCarManufacturersDF$manufacturer)
+topTenCarManufacturersDF$manufacturer=transform(fit,topTenCarManufacturersDF$manufacturer)
+
+fit=LabelEncoder.fit(topTenCarManufacturersDF$model)
+topTenCarManufacturersDF$model=transform(fit,topTenCarManufacturersDF$model)
+
+## 75% of the sample size
+smp_size <- floor(0.75 * nrow(topTenCarManufacturersDF))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+train_ind <- sample(seq_len(nrow(topTenCarManufacturersDF)), size = smp_size)
+
+train <- topTenCarManufacturersDF[train_ind, ]
+test <- topTenCarManufacturersDF[-train_ind, ]
+
+nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, hidden=4, linear.output=FALSE, act.fct = "tanh")
+print(nn$result.matrix)
+plot(nn)
 
 # Plot of number of cars for the top 10 manufacturers
 manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
