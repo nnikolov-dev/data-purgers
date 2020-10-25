@@ -42,6 +42,7 @@ MYLIBRARIES<-c("outliers",
                "MASS",
                "data.table",
                "CatEncoders",
+               "keras",
                "neuralnet",
                "formattable",
                "ggplot2",
@@ -66,6 +67,7 @@ pacman::p_load(char=MYLIBRARIES,install=TRUE,character.only=TRUE)
 options(scipen = 8)
 # Load additional R script files provide for this lab
 source("dataPrep.R")
+
 set.seed(123)
 
 # Loading the data
@@ -88,6 +90,8 @@ cars <- subset(cars, manufacturer != "" & model != "")
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
 cars <- subset(cars, price >= 200)
+cars <- subset(cars, price <= 50000)
+cars <- subset(cars, year >= 1960)
 
 # ---------------------------------------------- Initial plotting ----------------------------------------------
 
@@ -128,11 +132,66 @@ set.seed(123)
 train_ind <- sample(seq_len(nrow(topTenCarManufacturersDF)), size = smp_size)
 
 train <- topTenCarManufacturersDF[train_ind, ]
-test <- topTenCarManufacturersDF[-train_ind, ]
+train_x <- subset(train, select = c(year, manufacturer, odometer))
+train_y <- subset(train, select = c(price))
 
-nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, act.fct = "tanh")
-print(nn$result.matrix)
-plot(nn)
+test <- topTenCarManufacturersDF[-train_ind, ]
+test_x <- subset(test, select = c(year, manufacturer, odometer))
+test_y <- subset(test, select = c(price))
+
+# Initialize a sequential model
+model <- keras_model_sequential() 
+
+# Add layers to the model
+model %>% 
+  layer_dense(units = 4, activation = 'relu', input_shape = c(3)) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1, activation = 'linear')
+
+# Print a summary of a model
+summary(model)
+
+# Get model configuration
+get_config(model)
+
+# Get layer configuration
+get_layer(model, index = 1)
+
+# List the model's layers
+model$layers
+
+# List the input tensors
+model$inputs
+
+# List the output tensors
+model$outputs
+
+# Compile the model
+model %>% compile(
+  loss = 'mse',
+  optimizer = 'adam',
+  metrics = c("mse", "accuracy", "mae")
+)
+xmatrixre <- as.matrix(train_x)
+ymatrixre <- data.matrix(train_y)
+
+# Fit the model 
+model %>% fit(
+  as.matrix(train_x), as.matrix(train_y),
+  epochs = 50, 
+  batch_size = 64,
+  validation_data = list(as.matrix(test_x),as.matrix(test_y))
+)
+
+#nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, act.fct = "tanh")
+#print(nn$result.matrix)
+#plot(nn)
+
+#Test the resulting output
+#temp_test <- subset(test, select = c("year","odometer", "model", "manufacturer"))
+#head(temp_test)
+#nn.results <- compute(nn, temp_test)
+#results <- data.frame(actual = test$price, prediction = nn.results$net.result)
 
 # Plot of number of cars for the top 10 manufacturers
 manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
