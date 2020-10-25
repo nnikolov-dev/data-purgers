@@ -110,7 +110,7 @@ topTenCarManufacturersDF <- na.omit(topTenCarManufacturersDF)
 
 # Normalise the data
 topTenCarManufacturersDF[] <- lapply(topTenCarManufacturersDF, function(x) if(is.numeric(x)){
-  scale(x, center=TRUE, scale=TRUE)
+  x = (x - min(x))/(max(x) - min(x))
 } else x)
 
 # transform feature char_1 to int
@@ -130,7 +130,7 @@ train_ind <- sample(seq_len(nrow(topTenCarManufacturersDF)), size = smp_size)
 train <- topTenCarManufacturersDF[train_ind, ]
 test <- topTenCarManufacturersDF[-train_ind, ]
 
-nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, hidden=4, linear.output=FALSE, act.fct = "tanh")
+nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, act.fct = "tanh")
 print(nn$result.matrix)
 plot(nn)
 
