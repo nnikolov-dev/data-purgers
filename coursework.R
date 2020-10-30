@@ -111,3 +111,14 @@ barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
 
 # Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
 with(cars,plot(odometer,price))
+
+
+
+library(data.table)
+library(CatEncoders)
+num_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
+s<-colnames(num_cols)
+for (i in s){
+  fit=LabelEncoder.fit(topTenCarManufacturersDF[,i])
+  topTenCarManufacturersDF[,i]=transform(fit,topTenCarManufacturersDF[,i])
+  }
