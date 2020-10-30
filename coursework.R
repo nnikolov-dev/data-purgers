@@ -119,6 +119,7 @@ library(CatEncoders)
 num_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
 s<-colnames(num_cols)
 for (i in s){
-  fit=LabelEncoder.fit(topTenCarManufacturersDF[,i])
-  topTenCarManufacturersDF[,i]=transform(fit,topTenCarManufacturersDF[,i])
+  fit<-LabelEncoder.fit(topTenCarManufacturersDF[,i])
+  toAdd<-paste(i, "encoded")
+  topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,i])
   }
