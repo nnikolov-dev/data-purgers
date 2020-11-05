@@ -73,8 +73,8 @@ cars <- carsInitial
 
 
 # Removing useless columns and 
-# id, url, county, regionurl, imageurl, lat, long, description, vin
-cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin))
+# id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
+cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
@@ -83,13 +83,17 @@ cars <- subset(cars, manufacturer != "" & model != "")
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
 cars <- subset(cars, price >= 200)
-
-
-displayMissingValPerc <- function(dt){
-  print(colMeans(is.na(dt)))
+# Method to remove empty values
+removeEmptyVals <- function(dt) {
+  colsCar<-colnames(dt)
+  for (col in colsCar){
+    dt <- dt[!(is.na(dt[,col]) | dt[,col]==""), ]
+  }
+  return(dt)
 }
+cars<-removeEmptyVals(cars)
 
-
+print(dim(cars))
 # ---------------------------------------------- Initial plotting ----------------------------------------------
 
 # Plot of number of data before and after clean-up
@@ -118,19 +122,20 @@ with(cars,plot(odometer,price))
 
 library(data.table)
 library(CatEncoders)
-num_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
-colsText<-colnames(num_cols)
+#Get Categorical values
+cat_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
+colsText<-colnames(cat_cols)
+#Label Encoder
 for (col in colsText){
   fit<-LabelEncoder.fit(topTenCarManufacturersDF[,col])
   toAdd<-paste(col, "encoded")
   topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,col])
 }
-
-
-topTenCarManufacturersDF <- topTenCarManufacturersDF[!(is.na(topTenCarManufacturersDF$odometer) | topTenCarManufacturersDF$odometer==""), ]
-print("PRINT DIMENSION:")
+# Clean data - Remove Empty values
+topTenCarManufacturersDF <- removeEmptyVals(topTenCarManufacturersDF)
+print("Print Dimension of top 10 car manufactures:")
 print(dim(topTenCarManufacturersDF))
-displayMissingValPerc(dt = topTenCarManufacturersDF)
+# Method for Data Visualisation - Needed for diagnosis
 #displayDistribution <- function(colname) {
 # d <- density(topTenCarManufacturersDF[,colname])
 # plot(d, main=paste("Kernel Density of",colname))
@@ -140,3 +145,12 @@ displayMissingValPerc(dt = topTenCarManufacturersDF)
 #for (item in x){
 #  displayDistribution(colname = item)
 #}
+
+# Dataframe Ready to train!
+carsToTrain <- topTenCarManufacturersDF
+drops <- c(colsText)
+
+
+carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
+print("Dimension for data ready to train")
+print(dim(carsToTrain))
