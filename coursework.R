@@ -70,13 +70,11 @@ carsInitial <- NreadDataset(DATASET_FILENAME)
 cars <- carsInitial
 # cars <- NPREPROCESSING_prettyDataset(cars)
 
-# Removing the " cylinders" part of the column
-# and converting it to numeric
-cars$cylinders <- as.numeric(substr(cars$cylinders,1,nchar(cars$cylinders)-10))
+
 
 # Removing useless columns and 
-# id, url, county, regionurl, imageurl, lat, long, description, vin
-cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin))
+# id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
+cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
@@ -85,7 +83,17 @@ cars <- subset(cars, manufacturer != "" & model != "")
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
 cars <- subset(cars, price >= 200)
+# Method to remove empty values
+removeEmptyVals <- function(dt) {
+  colsCar<-colnames(dt)
+  for (col in colsCar){
+    dt <- dt[!(is.na(dt[,col]) | dt[,col]==""), ]
+  }
+  return(dt)
+}
+cars<-removeEmptyVals(cars)
 
+print(dim(cars))
 # ---------------------------------------------- Initial plotting ----------------------------------------------
 
 # Plot of number of data before and after clean-up
@@ -112,14 +120,37 @@ barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
 # Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
 with(cars,plot(odometer,price))
 
-
-
 library(data.table)
 library(CatEncoders)
-num_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
-s<-colnames(num_cols)
-for (i in s){
-  fit<-LabelEncoder.fit(topTenCarManufacturersDF[,i])
-  toAdd<-paste(i, "encoded")
-  topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,i])
-  }
+#Get Categorical values
+cat_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
+colsText<-colnames(cat_cols)
+#Label Encoder
+for (col in colsText){
+  fit<-LabelEncoder.fit(topTenCarManufacturersDF[,col])
+  toAdd<-paste(col, "encoded")
+  topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,col])
+}
+# Clean data - Remove Empty values
+topTenCarManufacturersDF <- removeEmptyVals(topTenCarManufacturersDF)
+print("Print Dimension of top 10 car manufactures:")
+print(dim(topTenCarManufacturersDF))
+# Method for Data Visualisation - Needed for diagnosis
+#displayDistribution <- function(colname) {
+# d <- density(topTenCarManufacturersDF[,colname])
+# plot(d, main=paste("Kernel Density of",colname))
+# polygon(d, col="red", border="blue")
+#}
+#x <- list("price", "year", "cylinders", "odometer", "fuel")
+#for (item in x){
+#  displayDistribution(colname = item)
+#}
+
+# Dataframe Ready to train!
+carsToTrain <- topTenCarManufacturersDF
+drops <- c(colsText)
+
+
+carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
+print("Dimension for data ready to train")
+print(dim(carsToTrain))
