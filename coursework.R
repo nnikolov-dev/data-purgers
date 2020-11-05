@@ -70,9 +70,7 @@ carsInitial <- NreadDataset(DATASET_FILENAME)
 cars <- carsInitial
 # cars <- NPREPROCESSING_prettyDataset(cars)
 
-# Removing the " cylinders" part of the column
-# and converting it to numeric
-cars$cylinders <- as.numeric(substr(cars$cylinders,1,nchar(cars$cylinders)-10))
+
 
 # Removing useless columns and 
 # id, url, county, regionurl, imageurl, lat, long, description, vin
@@ -85,6 +83,12 @@ cars <- subset(cars, manufacturer != "" & model != "")
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
 cars <- subset(cars, price >= 200)
+
+
+displayMissingValPerc <- function(dt){
+  print(colMeans(is.na(dt)))
+}
+
 
 # ---------------------------------------------- Initial plotting ----------------------------------------------
 
@@ -112,14 +116,27 @@ barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
 # Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
 with(cars,plot(odometer,price))
 
-
-
 library(data.table)
 library(CatEncoders)
 num_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
-s<-colnames(num_cols)
-for (i in s){
-  fit<-LabelEncoder.fit(topTenCarManufacturersDF[,i])
-  toAdd<-paste(i, "encoded")
-  topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,i])
-  }
+colsText<-colnames(num_cols)
+for (col in colsText){
+  fit<-LabelEncoder.fit(topTenCarManufacturersDF[,col])
+  toAdd<-paste(col, "encoded")
+  topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,col])
+}
+
+
+topTenCarManufacturersDF <- topTenCarManufacturersDF[!(is.na(topTenCarManufacturersDF$odometer) | topTenCarManufacturersDF$odometer==""), ]
+print("PRINT DIMENSION:")
+print(dim(topTenCarManufacturersDF))
+displayMissingValPerc(dt = topTenCarManufacturersDF)
+#displayDistribution <- function(colname) {
+# d <- density(topTenCarManufacturersDF[,colname])
+# plot(d, main=paste("Kernel Density of",colname))
+# polygon(d, col="red", border="blue")
+#}
+#x <- list("price", "year", "cylinders", "odometer", "fuel")
+#for (item in x){
+#  displayDistribution(colname = item)
+#}
