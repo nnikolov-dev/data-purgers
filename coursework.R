@@ -83,8 +83,8 @@ cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long
 cars <- subset(cars, manufacturer != "" & model != "")
 # Make sure price column is numeric
 cars <- subset(cars, is.numeric(price))
-# Remove rows with invalid or "bad" prices, typically <200
-cars <- subset(cars, price >= 200)
+# Remove rows with invalid or "bad" prices, typically <200 and less than 30000
+cars <- subset(cars, price >= 200 & price <= 30000)
 # Method to remove empty values
 removeEmptyVals <- function(dt) {
   colsCar<-colnames(dt)
@@ -246,7 +246,7 @@ print(ncol(train_x))
 history <- model %>% fit(
   x = as.matrix(train_x),
   y = as.matrix(train_y),
-  epochs = 70,
+  epochs = 30,
   validation_split = 0.3,
   batch_size = 16,
   verbose = 1,
