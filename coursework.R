@@ -44,7 +44,9 @@ MYLIBRARIES<-c("outliers",
                "ggplot2",
                "stats",
                "PerformanceAnalytics",
-               "caret")
+               "caret",
+               "keras",
+               "dplyr")
 
 # User defined functions are next
 # ************************************************
@@ -154,3 +156,123 @@ drops <- c(colsText)
 carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
+
+#------------------------------------Initial NN--------------------------------
+
+#carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
+
+smp_size <- floor(0.75 * nrow(carsToTrain))
+
+train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
+
+
+train <- carsToTrain[train_ind, ]
+test <- carsToTrain[-train_ind, ]
+
+
+#train <- subset(train,  `model encoded` <= 100)
+#test <- subset(test, `model encoded` <= 100)
+
+
+train_x <- subset(train, select = -c(price))
+train_y <- subset(train, select = c(price) )
+train_y_notNormalised <- train_y
+
+
+test_x <- subset(test, select = -c(price))
+test_y <- subset(test, select = c(price))
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+denormalize <- function(x,y) {
+  return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
+}
+
+
+train_y$price<-normalize(train_y$price)
+
+
+# Initialize a sequential model
+model <- keras_model_sequential() 
+
+# Add layers to the model
+model %>% 
+  layer_dense(units = 64, input_shape = ncol(train_x)) %>%
+  layer_activation_leaky_relu() %>% 
+  layer_dense(units = 64) %>%
+  layer_activation_leaky_relu() %>% 
+  layer_dense(units = 64) %>%
+  layer_activation_leaky_relu() %>% 
+  layer_dense(units = 1, activation = "linear")
+  #layer_activation_leaky_relu()
+
+
+# Print a summary of a model
+summary(model)
+
+# Get model configuration
+get_config(model)
+
+# Get layer configuration
+get_layer(model, index = 1)
+
+# List the model's layers
+model$layers
+
+# List the input tensors
+model$inputs
+
+# List the output tensors
+model$outputs
+
+# Compile the model
+model %>% compile(
+  loss = 'mse',
+  optimizer = optimizer_rmsprop(),
+  metrics = c("mse", "mae")
+)
+xmatrixre <- as.matrix(train_x)
+ymatrixre <- data.matrix(train_y)
+
+print(dim(train_x))
+print(dim(train_y))
+print(ncol(train_x))
+
+#train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
+
+# Fit the model 
+history <- model %>% fit(
+  x = as.matrix(train_x),
+  y = as.matrix(train_y),
+  epochs = 70,
+  validation_split = 0.3,
+  batch_size = 16,
+  verbose = 1,
+)
+
+denormalised <- denormalize(train_y,train_y_notNormalised)
+
+test_predictions <- model %>% predict(as.matrix(test_x))
+test_predictions[ , 1]
+
+denormalised <- denormalize(test_predictions,train_y_notNormalised)
+
+print(history)
+
+#nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, act.fct = "tanh")
+#print(nn$result.matrix)
+#plot(nn)
+
+#Test the resulting output
+#temp_test <- subset(test, select = c("year","odometer", "model", "manufacturer"))
+#head(temp_test)
+#nn.results <- compute(nn, temp_test)
+#results <- data.frame(actual = test$price, prediction = nn.results$net.result)
+
+# Plot of number of cars for the top 10 manufacturers
+#manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
+
+
+
