@@ -154,3 +154,34 @@ drops <- c(colsText)
 carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
+
+smp_size <- floor(0.75 * nrow(carsToTrain))
+
+train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
+
+
+train <- carsToTrain[train_ind, ]
+test <- carsToTrain[-train_ind, ]
+
+
+#train <- subset(train,  `model encoded` <= 100)
+#test <- subset(test, `model encoded` <= 100)
+
+library(xgboost)
+
+
+train_x <- subset(train, select = -c(price))
+train_y <- train$price
+test_y <- subset(test, select = c(price))
+test_x <- test$price
+train_x <- as.matrix.data.frame(train_x)
+train <- as.matrix.data.frame(train)
+
+dtrain <- xgb.DMatrix(data = train_x, label=train[,"price"] )
+model <- xgboost(data = dtrain, max.depth = 200, eta = 0.66, nthread = 5, nrounds = 200, objective = "reg:squarederror")
+
+pred <- predict(model, test_x)
+print(length(pred))
+
+err <- mean(pred != test_y)
+print(paste("test-error=", err))
