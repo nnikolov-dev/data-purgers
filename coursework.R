@@ -128,7 +128,7 @@ colsText<-colnames(cat_cols)
 #Label Encoder
 for (col in colsText){
   fit<-LabelEncoder.fit(topTenCarManufacturersDF[,col])
-  toAdd<-paste(col, "encoded")
+  toAdd<-paste(col, "Encoded", sep="")
   topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,col])
 }
 # Clean data - Remove Empty values
@@ -154,3 +154,14 @@ drops <- c(colsText)
 carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
+
+# Random Forest
+library(randomForest)
+
+print(head(carsToTrain))
+
+output.forest <- randomForest(price ~ ., data = carsToTrain)
+
+print(output.forest)
+
+plot(output.forest)
