@@ -6,7 +6,7 @@
 #  COM3018/COMM053
 #
 # Prof. Nick F Ryman-Tubb
-# The Surrey Business School
+# Department of Computer Science
 # University of Surrey
 # GUILDFORD
 # Surrey GU2 7XH
@@ -47,11 +47,11 @@
 # 1.09      17/10/2019  Uddates for PBA lab 3
 # 1.10      22/10/2019  Nrescaleentireframe() return the scaled values in an object
 #                       NPLOT_correlagram() plot abs() value correlations only
-# 1.20      24/2/2020   NPREPROCESSING_redundantFields() output field names to console
-# 1.21      12/10/2020   Updated for R 4.x
+# 1.11                  For PBA lab 4, added NPREPROCESSING_dataset()
+# 1.12      11/5/2020   NPREPROCESSING_outlier() Fixed bug to either replace with MEAN or REMOVE records
+# 1.13      23/5/2020   NPREPROCESSING_redundantFields() bug fix for multiple correlations
+# 1.14      2/6/2020    NPREPROCESSING_outlier() - Fixed bug to process all identified outlier records
 # ************************************************
-
-# Pre-Processing a Dataset functions
 
 # To manually set a field type
 # This will store $name=field name, $type=field type
@@ -284,13 +284,16 @@ NPREPROCESSING_categorical<-function(dataset,field_types){
                                                               sep="")
             }
             else {
-              print(paste("Ignoring in field:",names(dataset)[field],
+              warning(paste("Prof Nick says: Ignoring in field:",
+                            names(dataset)[field],
                           "Literal:",nameOfLiteral,
                           "Too few=",literalsActive))
             }
           }
         } else {
-          stop(paste("Error - too many literals in:",names(dataset)[field], numberLiterals))
+          stop(paste("Prof Nick says: Error - too many literals in:",
+                     names(dataset)[field],
+                     numberLiterals))
         }
 
       }
@@ -313,7 +316,12 @@ NPREPROCESSING_categorical<-function(dataset,field_types){
 # ************************************************
 NplotOutliers<-function(sorted,outliers,fieldName){
 
-  plot(1:length(sorted),sorted,pch=1,xlab="Unique records",ylab=paste("Sorted values",fieldName),bty="n")
+  plot(1:length(sorted),sorted,
+       pch=1,
+       xlab="Unique records",
+       ylab=paste("Sorted values",fieldName),
+       bty="n")
+
   if (length(outliers)>0)
     points(outliers,sorted[outliers],col="red",pch=19)
 }
@@ -357,8 +365,9 @@ NPLOT_correlagram<-function(cr){
 #        double     - cutoff  - Value above which is determined redundant [0,1]
 #
 # OUTPUT : Frame - dataset with any fields removed
+#
+# Updated: 230529NRT c
 # ************************************************
-
 NPREPROCESSING_redundantFields<-function(dataset,cutoff){
 
   print(paste("Before redundancy check Fields=",ncol(dataset)))
@@ -369,23 +378,18 @@ NPREPROCESSING_redundantFields<-function(dataset,cutoff){
   if (length(xx)>0L)
     dataset<-dataset[,-xx]
 
-  #Kendall is more robust for data do not necessarily come from a bivariate normal distribution.
+  # "Kendall" is more robust for data do not necessarily come from a bivariate normal distribution.
   cr<-cor(dataset, use="everything")
-  #cr[(which(cr<0))]<-0 #Positive correlation coefficients only
+
   NPLOT_correlagram(cr)
 
   correlated<-which(abs(cr)>=cutoff,arr.ind = TRUE)
   list_fields_correlated<-correlated[which(correlated[,1]!=correlated[,2]),]
 
-  if (nrow(list_fields_correlated)>0){
+  if (length(list_fields_correlated)>0){
 
     print("Following fields are correlated")
     print(list_fields_correlated)
-
-    # 240220nrt print list of correlated fields as namesß
-    for (i in 1:nrow(list_fields_correlated)){
-      print(paste(names(dataset)[list_fields_correlated[i,1]],"~", names(dataset)[list_fields_correlated[i,2]]))
-    }
 
     #We have to check if one of these fields is correlated with another as cant remove both!
     v<-vector()
@@ -395,7 +399,8 @@ NPREPROCESSING_redundantFields<-function(dataset,cutoff){
         v<-append(v,list_fields_correlated[i,1])
       }
     }
-    print("Removing the following fields")
+    v<-unique(v)  #230529NRT fields might repeat as correlated with more than one
+    print(paste("Removing the", length(v),"named fields"))
     print(names(dataset)[v])
 
     return(dataset[,-v]) #Remove the first field that is correlated with another
@@ -408,42 +413,72 @@ NPREPROCESSING_redundantFields<-function(dataset,cutoff){
 #
 # Determine if a value of a record is an outlier for each field
 #
-# INPUT:   data frame - ordinals   - numeric fields only
-#          double     - confidence - Confidence above which is determined an outlier [0,1]
-#                                  - Set to negative Confidence if NOT remove outliers
+# INPUT:   data frame    - dataset   - complete data set
+#          vector string - field_types  - types per field {ORDINAL, SYMBOLIC, DISCREET}
+#          double        - confidence - Confidence above which is determined an outlier [0,1]
+#          string        - operation  = "ignore" = make no changes
+#                                     = "mean"   = replace with field mean
+#                                     = "remove" = delete the entire record
 #
-# OUTPUT : data frame - ordinals with any outlier values replaced with the median of the field
+# OUTPUT : data frame - data set with outlier values: ignored, replaced or deleted
+#
+# 110520NRT - Fixed bug to either replace with MEAN or DELETE records
+# 020620NRT - Fixed bug to process all identified outlier records
 # ************************************************
 # ChiSquared method
 # Uses   library(outliers)
-# https://cran.r-project.org/web/packages/outliers/outliers.pdf
+# https://cran.r-project.org/web/packages/outliers/outliers.pdfß
 
-NPREPROCESSING_outlier<-function(ordinals,confidence){
+NPREPROCESSING_outlier<-function(dataset,field_types, confidence, operation="remove"){
 
-  #For every ordinal field in our dataset
-  for(field in 1:(ncol(ordinals))){
+  #For everyfield in our dataset
+  for(field in 1:(ncol(dataset))){
 
-    sorted<-unique(sort(ordinals[,field],decreasing=TRUE))
-    outliers<-which(outliers::scores(sorted,type="chisq",prob=abs(confidence)))
-    NplotOutliers(sorted,outliers,colnames(ordinals)[field])
+    #Only for fields that are all numeric
+    if (field_types[field]==TYPE_ORDINAL) {
 
-    #If found records with outlier values
-    if ((length(outliers>0))){
+      #020620NRT  Assign data frame for just this field with the values and TRUE/FALSE  based on confidence level
+      justField<-data.frame(v=dataset[,field],outlier=outliers::scores(dataset[,field],type="chisq",prob=abs(confidence)))
+      indexToOutliers<-which(justField$outlier)
+      numberOfOutliers<-length(indexToOutliers)
 
-      #070819NRT If confidence is positive then replace values with their means, otherwise do nothing
-      if (confidence>0){
-        outliersGone<-rm.outlier(ordinals[,field],fill=TRUE)
-        sorted<-unique(sort(outliersGone,decreasing=TRUE))
-        #NplotOutliers(sorted,vector(),colnames(ordinals)[field])
-        ordinals[,field]<-outliersGone #Put in the values with the outliers replaced by means
-        print(paste("Outlier field=",names(ordinals)[field],"Records=",length(outliers),"Replaced with MEAN"))
-      } else {
-        print(paste("Outlier field=",names(ordinals)[field],"Records=",length(outliers)))
-      }
-    }
+      # 020620NRT This sorts the entire dataframe from low values to high
+      # and then plot
+      sortedData<-justField[order(justField$v),]
 
-  }
-  return(ordinals)
+      plot(1:nrow(sortedData),sortedData$v,
+           pch=1,
+           xlab="Records",
+           ylab=paste("Sorted values",colnames(dataset)[field]),
+           bty="n")
+
+      # If outlier(s) detected then show on the plot and process
+      if (numberOfOutliers>0){
+
+        # Highlight outliers as red plots
+        indexToSortedOutliers<-which(sortedData$outlier)
+        points(indexToSortedOutliers,sortedData$v[indexToSortedOutliers],col="red",pch=19)
+
+        #If found records with outlier values
+        switch(operation,
+
+               "mean"= {
+                       dataset[indexToOutliers,field]<-mean(dataset[,field])
+                       print(paste("REPLACED WITH MEAN: Outlier field=",names(dataset)[field],"#Records=",numberOfOutliers))
+                       },
+               "remove"={
+                          dataset<-dataset[-indexToOutliers,]
+                          print(paste("DELETED RECORDS: Outlier field=",names(dataset)[field],"#Records=",numberOfOutliers))
+                         },
+              "ignore"=  {
+                         print(paste("NO REPLACEMENT: Outlier field=",names(dataset)[field],"#Records=",numberOfOutliers))
+                         }
+               )
+      } #endof if any outliers found
+    } #endof if ordinal
+  } #endof for() each field
+
+  return(dataset)
 }
 
 # ************************************************
@@ -451,18 +486,20 @@ NPREPROCESSING_outlier<-function(ordinals,confidence){
 #
 # Output measures to the Viewer
 #
-# INPUT:    list - results - results from NcalcConfusion()
+# INPUT:    list -   results - results from NcalcConfusion()
+#           string - title   - title of the table
 #
 # OUTPUT :  NONE
 #
 # 070819NRT updated to output table to viewer only
 # 171019NRT added column name "Metric"
+# 241019NRT added title
 # ************************************************
-NprintMeasures<-function(results){
+NprintMeasures<-function(results,title){
 
   #This outputs our results into the "Viewer" in RStudio
   tidyTable<-data.frame(t(t(results)))
-  names(tidyTable)[1]<-"Metric"
+  names(tidyTable)[1]<-title
 
   t<-formattable::formattable(tidyTable,list(
     TP = formatter("span",style = x ~ style(color = "black"),~sprintf("%.0f",TP)),
@@ -563,13 +600,15 @@ NcalcMeasures<-function(TP,FN,FP,TN){
 # 070819NRT convert values to doubles to avoid integers overflowing
 # Updated to the following definition of the confusion matrix
 #
+# A good loan is indicated when $Status=1 and bad when $Status=0
+
 #                    ACTUAL
 #               ------------------
-# PREDICTED     FRAUD   |  GENUINE
+# PREDICTED     GOOD=1   |  BAD=0
 #               ------------------
-#     FRAUD      TP     |    FP
+#     GOOD=1      TP     |    FP
 #               ==================
-#     GENUINE    FN     |    TN
+#     BAD=0       FN     |    TN
 #
 #
 # ************************************************
@@ -597,13 +636,14 @@ NcalcConfusion<-function(expectedClass,predictedClass){
 #
 # OUTPUT : data Frame - test dataset
 #          data Frame - train dataset
+# 241019 use the global HOLDOUT
 # ************************************************
 NPREPROCESSING_splitdataset<-function(combinedML){
 
-  # **** Create a TRAINING dataset using 70% of the records
+  # **** Create a TRAINING dataset using HOLDOUT % of the records
 
   combinedML<-combinedML[order(runif(nrow(combinedML))),]
-  training_records<-round(nrow(combinedML)*(70/100))
+  training_records<-round(nrow(combinedML)*(HOLDOUT/100))
 
   train <- 1:training_records
   test <- -train
@@ -679,4 +719,102 @@ NPREPROCESSING_prettyDataset<-function(dataset,...){
                                    Skew = formatter("span",style = x ~ style(color = "black"),~ ifelse(Catagorical,"-",sprintf("%.2f", Skew)))
                               ))
   print(t)
+}
+
+# ************************************************
+# preprocessdataset() :
+#
+# Run the steps discussed to pre-process a dataset
+#
+# INPUT: data frame - dataset    - original (raw) dataset
+#        Bool       - scaleFlag  - true to scale dataset
+#
+# OUTPUT : Frame - dataset
+# ************************************************
+NPREPROCESSING_dataset<-function(dataset, scaleFlag=FALSE){
+
+  NPREPROCESSING_prettyDataset(dataset)
+
+  # ************************************************
+  # Determine initial field types: NUMERIC or SYMBOLIC
+  field_types<-NPREPROCESSING_initialFieldType(dataset)
+
+  numeric_fields<-names(dataset)[field_types==TYPE_NUMERIC]
+  print(numeric_fields)
+
+  symbolic_fields<-names(dataset)[field_types==TYPE_SYMBOLIC]
+  print(symbolic_fields)
+
+  # ************************************************
+  # Determine if the numeric fields might be discreet numeric
+  # If there are over 3 bins with less than 1% of the values, then the field is
+  # marked as a discreet numeric
+  field_types<-NPREPROCESSING_discreetNumeric(dataset=dataset,
+                                              field_types=field_types,
+                                              cutoff=CUTOFF_DISCREET)
+
+  # ************************************************
+  # FOR ORDINAL TYPES:
+
+  # ************************************************
+  # Outlier detection
+  #
+  # If the p-value<significance (e.g. p=0.05, confidence=95%)
+  # Operation can be: "ignore", "mean" or "remove"
+  # NRT110520 updated parameters to pass whole dataset andoperation
+  dataset<-NPREPROCESSING_outlier(dataset=dataset,
+                                   field_types=field_types,
+                                   confidence=CUTOFF_OUTLIER,
+                                   operation="remove")
+
+  # The entire dataset is returned, as some records may have been removed
+
+  ordinals<-dataset[,field_types==TYPE_ORDINAL]
+
+  if (scaleFlag==TRUE){
+    # ************************************************
+    # Now z-scale
+    zscaled<-apply(ordinals, MARGIN = 2,
+                   FUN = function(X) (scale(X,center=TRUE,
+                                            scale=TRUE)))
+
+    # ************************************************
+    # Scale in this case to be [0.0,1.0]
+    ordinalReadyforML<-Nrescaleentireframe(as.data.frame(zscaled))
+
+  } else
+  {
+    ordinalReadyforML<-ordinals
+  }
+  # We now have a frame called ordinalReadyforML of
+  # just the numeric fields, nice and ready for the ML
+
+  # ************************************************
+  # IF SYMBOLIC TYPES:
+  # This function undertakes 1-hot-encoding
+
+  catagoricalReadyforML<-NPREPROCESSING_categorical(dataset = dataset,
+                                                    field_types=field_types)
+
+  # ************************************************
+  # Are any of the fields of both the numeric and symbolic pre-processed datasets redundant?
+
+  #Combine the two sets of data that are read for ML
+  combinedML<-cbind(ordinalReadyforML,catagoricalReadyforML)
+
+  # Are any of the fields redundant?
+  combinedML<-NPREPROCESSING_redundantFields(dataset=combinedML,cutoff=CUTOFF_REDUNDANT)
+
+  #The dataset for ML information
+  print(paste("Fields=",ncol(combinedML)))
+
+  # ************************************************
+  # If teh names of the fields contain spaces then they
+  # "confuse" some of the library algorithms
+  # This removes the spaces.
+  names(combinedML)<-gsub(" ", "", names(combinedML), fixed = TRUE)
+
+  # ************************************************
+  # Returns the pre-processed dataset
+  return(combinedML)
 }

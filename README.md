@@ -10,7 +10,7 @@ Theodoros, Louai, Valeriy, Markos, Yiannis, Nikita
    3. Branch out
    4. Make a pull request to *master* when done
 
-## Naming Strategy
+## Branching Strategy
 Name your branch accordingly
 - "feature/*" - Adding new features to the project
 - "fix/*" - Fixing a bug/error
