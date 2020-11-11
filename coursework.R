@@ -34,15 +34,6 @@ CUTOFF_OUTLIER    <- 0.99                 # Confidence p-value for outlier detec
 CUTOFF_DISCREET   <- 5                    # Number of empty bins to determine discreet
 CUTOFF_REDUNDANT  <- 0.95                 # Linear correlation coefficient cut-off
 MAX_LITERALS      <- 400                    # Maximum numner of 1-hot-encoding fields
-
-# Forest
-NODE_LEVEL        <- 1                    # The number is the node level of the tree to print
-BOOST             <- 20                   # Number of boosting iterations. 1=single model
-FOREST_SIZE       <- 1000                 # Number of trees in the forest
-SCALE_DATASET     <- TRUE                 # Set to true to scale dataset before ML stage
-
-KFOLDS            <- 6                 # Number of folded experiments
-
 OUTPUT_FIELD      <- "price"
 
 # Define and then load the libraries used in this project
@@ -64,7 +55,7 @@ MYLIBRARIES<-c("outliers",
                "stats",
                "PerformanceAnalytics",
                "caret",
-               "C50")
+               "randomForest")
 
 # User defined functions are next
 # ************************************************
@@ -119,107 +110,6 @@ getTreeClassifications<-function(myTree,
 } #endof getTreeClassifications()
 
 # ************************************************
-# fullDT() :
-#
-# Create C5 Decision Tree on pre-processed dataset
-#
-# INPUT   :
-#             Data Frame     - train       - train dataset
-#             Data Frame     - test        - test dataset
-#             int            - boost       - number of trees to boost
-#             boolean        - plot        - TRUE = plot charts
-#
-# OUTPUT  :
-#         :   Data Frame     - measures  - performance metrics
-#
-# ************************************************
-fullDT<-function(train,test,boost=1,plot=TRUE){
-  
-  positionClassOutput<-which(names(train)==OUTPUT_FIELD)
-  
-  # train data: dataframe with the input fields
-  train_inputs<-train[-positionClassOutput]
-  
-  # train data: vector with the expedcted output
-  train_expected<-train[,positionClassOutput]
-  
-  # ************************************************
-  # Create a standard Decision Tree using the C5.0 algorithm
-  # Uses library C50
-  # Outputs the tree in the format of rules
-  
-  myTitle<-"Preprocessed Dataset. DT C5.0"
-  if (boost>1)
-    myTitle<-paste(myTitle,"BOOSTED=",boost)
-  
-  print(myTitle)
-  
-  tree<-C50::C5.0(x=train_inputs,
-                  factor(train_expected),
-                  rules=TRUE,
-                  trials=boost)
-  
-  # Use the created decision tree with the test dataset
-  # to determine best classification threshold & calculate metrics
-  measures<-getTreeClassifications(myTree = tree,
-                                   testDataset = test,
-                                   title=myTitle,
-                                   plot=plot)
-  
-  if (plot==TRUE){
-    
-    print(summary(tree))
-    
-    # Get importance of the input fields
-    importance<-C50::C5imp(tree, metric = "usage")
-    names(importance)<-"Strength"
-    
-    importance<-importance[order(importance$Strength,decreasing=TRUE),,drop=FALSE]
-    
-    print(formattable::formattable(importance))
-    
-    # Plot the importance fields
-    barplot(t(importance),las=2,
-            border = 0, cex.names =0.7,
-            main=myTitle)
-    
-    # ************************************************
-    # We can visualise the tree
-    
-    #Function to output the tree as rules to a file
-    dftreerules<-NDT5RuleOutput(tree)
-    print(formattable::formattable(dftreerules))
-    
-    # ************************************************
-    # Creates C5.0 decision tree & plot as a tree structure
-    # The "partykit" library requires the variables (wrongly) to be global
-    print("Plot decision tree to file called tree.pdf")
-    
-    Global_train_inputs<<-train_inputs
-    Global_train_expected<<-train_expected
-    
-    # :: is used to specify a function within the named package to avoid confusion
-    tree<-C50::C5.0(x=Global_train_inputs,
-                    factor(Global_train_expected),
-                    trials=boost)
-    
-    # ::: is used to directly access a member of a package that is internal
-    graphtree<-C50:::as.party.C5.0(tree)
-    
-    # The plot is large - so print to a big PDF file
-    pdf(PDF_FILENAME, width=100, height=50, paper="special", onefile=F)
-    
-    # The number is the node level of the tree to print
-    plot(graphtree[NODE_LEVEL])
-    
-    #This closes the PDF file
-    dev.off()
-    
-  }
-  return(measures)
-} #endof fullDT()
-
-# ************************************************
 # This is where R starts execution
 
 # clears the console area
@@ -240,7 +130,7 @@ set.seed(123)
 # Loading the data
 carsInitial <- NreadDataset(DATASET_FILENAME)
 cars <- carsInitial
-# cars <- NPREPROCESSING_prettyDataset(cars)
+# cars <- NPREPROCESSING_prettyDataset(carsInitial)
 
 
 
@@ -300,7 +190,7 @@ colsText<-colnames(cat_cols)
 #Label Encoder
 for (col in colsText){
   fit<-LabelEncoder.fit(topTenCarManufacturersDF[,col])
-  toAdd<-paste(col, "encoded")
+  toAdd<-paste(col, "encoded", sep="")
   topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,col])
 }
 # Clean data - Remove Empty values
@@ -326,3 +216,16 @@ drops <- c(colsText)
 carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
+
+# ------------------ Random Forest ------------------ 
+# carsToTrain <- carsToTrain[,!(names(carsToTrain) %in% c("cylindersencoded", "driveencoded", "paintcolorencoded", "typeencoded", "transmissionencoded"))]
+ntrees <- c(50, 100, 200, 300)
+for (ntree in ntrees) {
+  rf_classifier <- randomForest(
+    # formula = price ~ year + odometer + manufacturerencoded + modelencoded + conditionencoded + cylindersencoded + fuelencoded + transmissionencoded + driveencoded + sizeencoded + typeencoded + paintcolorencoded,
+    formula = price ~ year + odometer,
+    data = carsToTrain,
+    ntree = ntree,
+    importance = TRUE)
+  print(rf_classifier)
+}
