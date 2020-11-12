@@ -82,7 +82,7 @@ cars <- subset(cars, manufacturer != "" & model != "")
 # Make sure price column is numeric
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
-cars <- subset(cars, price >= 200)
+cars <- subset(cars, price >= 200 && price <= 30000 && odometer <= 300000)
 # Method to remove empty values
 removeEmptyVals <- function(dt) {
   colsCar<-colnames(dt)
