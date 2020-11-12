@@ -158,9 +158,14 @@ print(dim(carsToTrain))
 # Random Forest
 library(randomForest)
 
-print(head(carsToTrain))
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
 
-output.forest <- randomForest(price ~ ., data = carsToTrain)
+normalized_data <- normalize(carsToTrain)
+print(head(normalized_data))
+
+output.forest <- randomForest(price ~ year + odometer + manufacturerEncoded + modelEncoded + conditionEncoded + cylindersEncoded + fuelEncoded + transmissionEncoded + driveEncoded + sizeEncoded + typeEncoded + paintcolorEncoded, data = normalized_data, importance= TRUE)
 
 print(output.forest)
 
