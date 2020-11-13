@@ -46,6 +46,8 @@ MYLIBRARIES<-c("outliers",
                "PerformanceAnalytics",
                "caret",
                "keras",
+               "Metrics",
+               "sjPlot",
                "dplyr")
 
 # User defined functions are next
@@ -159,6 +161,8 @@ print(dim(carsToTrain))
 
 #------------------------------------Initial NN--------------------------------
 
+CREATE_NEW_MODEL <- FALSE
+
 #carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
 
 smp_size <- floor(0.75 * nrow(carsToTrain))
@@ -181,6 +185,7 @@ train_y_notNormalised <- train_y
 
 test_x <- subset(test, select = -c(price))
 test_y <- subset(test, select = c(price))
+test_y_notNormalised <- test_y
 
 normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
@@ -192,65 +197,74 @@ denormalize <- function(x,y) {
 
 
 train_y$price<-normalize(train_y$price)
+test_y$price<-normalize(test_y$price)
 
-
-# Initialize a sequential model
-model <- keras_model_sequential() 
-
-# Add layers to the model
-model %>% 
-  layer_dense(units = 64, input_shape = ncol(train_x)) %>%
-  layer_activation_leaky_relu() %>% 
-  layer_dense(units = 64) %>%
-  layer_activation_leaky_relu() %>% 
-  layer_dense(units = 64) %>%
-  layer_activation_leaky_relu() %>% 
-  layer_dense(units = 1, activation = "linear")
-  #layer_activation_leaky_relu()
-
-
-# Print a summary of a model
-summary(model)
-
-# Get model configuration
-get_config(model)
-
-# Get layer configuration
-get_layer(model, index = 1)
-
-# List the model's layers
-model$layers
-
-# List the input tensors
-model$inputs
-
-# List the output tensors
-model$outputs
-
-# Compile the model
-model %>% compile(
-  loss = 'mse',
-  optimizer = optimizer_rmsprop(),
-  metrics = c("mse", "mae")
-)
-xmatrixre <- as.matrix(train_x)
-ymatrixre <- data.matrix(train_y)
-
-print(dim(train_x))
-print(dim(train_y))
-print(ncol(train_x))
-
-#train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
-
-# Fit the model 
-history <- model %>% fit(
-  x = as.matrix(train_x),
-  y = as.matrix(train_y),
-  epochs = 30,
-  validation_split = 0.3,
-  batch_size = 16,
-  verbose = 1,
-)
+if(CREATE_NEW_MODEL){
+  # Initialize a sequential model
+  model <- keras_model_sequential() 
+  
+  # Add layers to the model
+  model %>% 
+    layer_dense(units = 64, input_shape = ncol(train_x)) %>%
+    layer_activation_leaky_relu() %>% 
+    layer_dense(units = 64) %>%
+    layer_activation_leaky_relu() %>% 
+    layer_dense(units = 1, activation = "linear")
+    #layer_activation_leaky_relu()
+  
+  
+  # Print a summary of a model
+  summary(model)
+  
+  # Get model configuration
+  get_config(model)
+  
+  # Get layer configuration
+  get_layer(model, index = 1)
+  
+  # List the model's layers
+  model$layers
+  
+  # List the input tensors
+  model$inputs
+  
+  # List the output tensors
+  model$outputs
+  
+  # Compile the model
+  model %>% compile(
+    loss = 'mse',
+    optimizer = optimizer_rmsprop(),
+    metrics = c("mse", "mae")
+  )
+  xmatrixre <- as.matrix(train_x)
+  ymatrixre <- data.matrix(train_y)
+  
+  print(dim(train_x))
+  print(dim(train_y))
+  print(ncol(train_x))
+  
+  #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
+  
+  # Fit the model 
+  history <- model %>% fit(
+    x = as.matrix(train_x),
+    y = as.matrix(train_y),
+    epochs = 30,
+    validation_split = 0.3,
+    batch_size = 16,
+    verbose = 1,
+  )
+  #Saving the model so that it can be reused
+  model %>% save_model_tf("model")
+  print(history)
+  
+}else
+  {
+  #Reusing the saved model
+  model <- load_model_tf("model")
+  summary(model)
+}
 
 denormalised <- denormalize(train_y,train_y_notNormalised)
 
@@ -259,7 +273,19 @@ test_predictions[ , 1]
 
 denormalised <- denormalize(test_predictions,train_y_notNormalised)
 
-print(history)
+
+# Evaluate on test data and labels and find values
+score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
+mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+# Print the mean absolute error
+print(paste("The model is off by +- $" , mean_abs_error))
+
+
+#Graph of Neural Network
+#NNGraph <- plot_model(model, to_file = "model.png", show_shapes = TRUE,
+#                      show_layer_names = TRUE)
+
+#print(NNGraph)
 
 #nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, act.fct = "tanh")
 #print(nn$result.matrix)
