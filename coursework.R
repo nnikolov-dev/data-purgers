@@ -273,7 +273,11 @@ test_predictions[ , 1]
 
 denormalised <- denormalize(test_predictions,train_y_notNormalised)
 
-
+x_axes = seq(1:length(test_predictions))
+plot(x_axes, test_y, type="l", col="red")
+lines(x_axes, test_predictions, col="blue")
+legend("topleft", legend=c("y-original", "y-predicted"),
+       col=c("red", "blue"), lty=1,cex=0.8)
 # Evaluate on test data and labels and find values
 score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
 mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
