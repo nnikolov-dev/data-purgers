@@ -289,18 +289,6 @@ mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
 # Print the mean absolute error
 print(paste("The model is off by +- $" , mean_abs_error))
 
-#Adding the predicted prices to the dataframe
-test_y_notNormalised$predictedPrice <- denormalised
-#Creating a graph with price vs predicted price
-predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
-print(predictedPricesGraph)
-#Removing the minus values from the dataframe
-test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice > 0)
-#Creating a graph with price vs predicted price
-predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point() +
-  geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)
-print(predictedPricesGraph)
-
 
 #Graph of Neural Network
 NNGraph <- plot_model(model, to_file = "model.png", show_shapes = TRUE,
