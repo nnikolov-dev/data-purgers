@@ -78,7 +78,7 @@ cars <- carsInitial
 
 # Removing useless columns and 
 # id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
-cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus, fuel, transmission, type, size, cylinders, drive))
+cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
@@ -86,9 +86,7 @@ cars <- subset(cars, manufacturer != "" & model != "")
 # Make sure price column is numeric
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200 and less than 30000
-cars <- subset(cars, price >= 200 & price <= 40000)
-cars <- subset(cars, condition != 'salvage')
-cars <- subset(cars, odometer <= 300000 & odometer >= 1000)
+cars <- subset(cars, price >= 200 & price <= 30000)
 # Method to remove empty values
 removeEmptyVals <- function(dt) {
   colsCar<-colnames(dt)
@@ -118,9 +116,6 @@ mostCommonManufacturers <- tail(names(sort(table(cars$manufacturer))), 10)
 # New data frame constructed with only the data of the top 10 manufacturers included
 topTenCarManufacturersDF <- subset(cars, manufacturer %in% mostCommonManufacturers)
 
-# Get the top 50 models
-mostCommonModels <- tail(names(sort(table(topTenCarManufacturersDF$model))), 30)
-topTenCarManufacturersDF <- subset(topTenCarManufacturersDF, model %in% mostCommonModels)
 # Plot of number of cars for the top 10 manufacturers
 manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
 barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
@@ -200,24 +195,23 @@ denormalize <- function(x,y) {
   return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
 }
 
-train_x <- normalize(train_x)
-train_y <- normalize(train_y)
-test_x <- normalize(test_x)
-test_y <- normalize(test_y)
-#train_y$price<-normalize(train_y$price)
-#test_y$price<-normalize(test_y$price)
 
-#if(CREATE_NEW_MODEL){
+train_y$price<-normalize(train_y$price)
+test_y$price<-normalize(test_y$price)
+
+if(CREATE_NEW_MODEL){
   # Initialize a sequential model
   model <- keras_model_sequential() 
   
   # Add layers to the model
-  model %>%
-    layer_dense(units = 32, input_shape = ncol(train_x)) %>%
+  model %>% 
+    layer_dense(units = 64, input_shape = ncol(train_x)) %>%
     layer_activation_leaky_relu() %>% 
     layer_dense(units = 64) %>%
     layer_activation_leaky_relu() %>% 
     layer_dense(units = 1, activation = "linear")
+    #layer_activation_leaky_relu()
+  
   
   # Print a summary of a model
   summary(model)
@@ -240,7 +234,7 @@ test_y <- normalize(test_y)
   # Compile the model
   model %>% compile(
     loss = 'mse',
-    optimizer = "adam",
+    optimizer = optimizer_rmsprop(),
     metrics = c("mse", "mae")
   )
   xmatrixre <- as.matrix(train_x)
@@ -256,20 +250,21 @@ test_y <- normalize(test_y)
   history <- model %>% fit(
     x = as.matrix(train_x),
     y = as.matrix(train_y),
-    epochs = 10,
-    batch_size = 64,
+    epochs = 30,
+    validation_split = 0.3,
+    batch_size = 16,
     verbose = 1,
   )
   #Saving the model so that it can be reused
   model %>% save_model_tf("model")
   print(history)
   
-#}else
-#  {
+}else
+  {
   #Reusing the saved model
-#  model <- load_model_tf("model")
-#  summary(model)
-#}
+  model <- load_model_tf("model")
+  summary(model)
+}
 
 denormalised <- denormalize(train_y,train_y_notNormalised)
 
@@ -278,11 +273,11 @@ test_predictions[ , 1]
 
 denormalised <- denormalize(test_predictions,train_y_notNormalised)
 
-# x_axes = seq(1:length(test_predictions))
-# plot(x_axes, test_y, type="l", col="red")
-# lines(x_axes, test_predictions, col="blue")
-# legend("topleft", legend=c("y-original", "y-predicted"),
-#        col=c("red", "blue"), lty=1,cex=0.8)
+x_axes = seq(1:length(test_predictions))
+plot(x_axes, test_y, type="l", col="red")
+lines(x_axes, test_predictions, col="blue")
+legend("topleft", legend=c("y-original", "y-predicted"),
+       col=c("red", "blue"), lty=1,cex=0.8)
 # Evaluate on test data and labels and find values
 score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
 mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
@@ -303,10 +298,10 @@ print(predictedPricesGraph)
 
 
 #Graph of Neural Network
-NNGraph <- plot_model(model, to_file = "model.png", show_shapes = TRUE,
-                      show_layer_names = TRUE)
+#NNGraph <- plot_model(model, to_file = "model.png", show_shapes = TRUE,
+#                      show_layer_names = TRUE)
 
-print(NNGraph)
+#print(NNGraph)
 
 #nn <- neuralnet(price ~ year + odometer + model + manufacturer, data=train, act.fct = "tanh")
 #print(nn$result.matrix)
