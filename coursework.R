@@ -44,7 +44,11 @@ MYLIBRARIES<-c("outliers",
                "ggplot2",
                "stats",
                "PerformanceAnalytics",
-               "caret")
+               "caret",
+               "keras",
+               "Metrics",
+               "sjPlot",
+               "dplyr")
 
 # User defined functions are next
 # ************************************************
@@ -74,7 +78,7 @@ cars <- carsInitial
 
 # Removing useless columns and 
 # id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
-cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus))
+cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus, fuel, transmission, type, size, cylinders, drive))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
@@ -99,12 +103,10 @@ print(dim(cars))
 # Plot of number of data before and after clean-up
 totalCarsPreCleanup <- nrow(carsInitial)
 totalCarsPostCleanup <- nrow(cars)
-barplot(c(totalCarsPreCleanup, totalCarsPostCleanup), main = "No. of Rows Before/After Cleanup")
 
 # Condition of cars
 conditionTable <- table(cars$condition)
-barplot(conditionTable, main = "Condition of cars",
-        xlab = "Condition", ylab = "No. of Cars")
+
 
 # Get the top 10 manufacturers
 mostCommonManufacturers <- tail(names(sort(table(cars$manufacturer))), 10)
@@ -112,13 +114,9 @@ mostCommonManufacturers <- tail(names(sort(table(cars$manufacturer))), 10)
 # New data frame constructed with only the data of the top 10 manufacturers included
 topTenCarManufacturersDF <- subset(cars, manufacturer %in% mostCommonManufacturers)
 
-# Plot of number of cars for the top 10 manufacturers
-manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
-barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
-        xlab = "Manufacturers", ylab = "No. of Cars")
-
-# Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
-with(cars,plot(odometer,price))
+# Get the top 50 models
+mostCommonModels <- tail(names(sort(table(topTenCarManufacturersDF$model))), 30)
+topTenCarManufacturersDF <- subset(topTenCarManufacturersDF, model %in% mostCommonModels)
 
 library(data.table)
 library(CatEncoders)
@@ -155,6 +153,11 @@ carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% 
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
 
+
+CREATE_NEW_MODEL <- FALSE
+
+#carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
+
 smp_size <- floor(0.75 * nrow(carsToTrain))
 
 train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
@@ -167,21 +170,80 @@ test <- carsToTrain[-train_ind, ]
 #train <- subset(train,  `model encoded` <= 100)
 #test <- subset(test, `model encoded` <= 100)
 
-library(xgboost)
-
 
 train_x <- subset(train, select = -c(price))
-train_y <- train$price
+train_y <- subset(train, select = c(price) )
+train_y_notNormalised <- train_y
+
+
+test_x <- subset(test, select = -c(price))
 test_y <- subset(test, select = c(price))
-test_x <- test$price
-train_x <- as.matrix.data.frame(train_x)
-train <- as.matrix.data.frame(train)
+test_y_notNormalised <- test_y
 
-dtrain <- xgb.DMatrix(data = train_x, label=train[,"price"] )
-model <- xgboost(data = dtrain, max.depth = 200, eta = 0.66, nthread = 5, nrounds = 200, objective = "reg:squarederror")
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
 
-pred <- predict(model, test_x)
-print(length(pred))
+denormalize <- function(x,y) {
+  return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
+}
 
-err <- mean(pred != test_y)
-print(paste("test-error=", err))
+train_x <- normalize(train_x)
+train_y <- normalize(train_y)
+test_x <- normalize(test_x)
+test_y <- normalize(test_y)
+
+
+
+
+
+library(xgboost)
+
+train_y$price<-normalize(train_y$price)
+
+dtrain <- xgb.DMatrix(data = as.matrix(train_x), label=as.matrix(train_y))
+
+model <- xgboost(data = dtrain, max.depth = 8, eta = 0.1, nrounds = 6000, objective = "reg:squarederror", verbose = 0)
+  
+denormalised <- denormalize(train_y,train_y_notNormalised)
+  
+test_predictions <- model %>% predict(as.matrix(test_x))
+  
+denormalised <- denormalize(test_predictions,train_y_notNormalised)
+  
+# Evaluate on test data and labels and find values
+mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+sqrt_mean_abs_error <- rmse(test_y_notNormalised$price,denormalised)
+# Print the mean absolute error
+print(paste("MAE +- $" , mean_abs_error))
+print(paste("RMSE +- $" , sqrt_mean_abs_error))
+
+
+
+#Adding the predicted prices to the dataframe
+test_y_notNormalised$predictedPrice <- denormalised
+#Creating a graph with price vs predicted price
+predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
+print(predictedPricesGraph)
+#Removing the minus values from the dataframe
+test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice > 0)
+#Creating a graph with price vs predicted price
+predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point() +
+  geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)
+print(predictedPricesGraph)
+
+
+library("SHAPforxgboost")
+
+
+shap_values <- shap.values(xgb_model = model, X_train = test_x)
+shap_long <- shap.prep(shap_contrib = shap_values$shap_score, X_train = test_x)
+
+
+# To prepare the long-format data:
+# is the same as: using given shap_contrib
+shap_long <- shap.prep(shap_contrib = shap_values$shap_score, X_train = as.matrix(test_x))
+# (Notice that there will be a data.table warning from `melt.data.table` due to `dayint` coerced from integer to double)
+
+# **SHAP summary plot**
+shap.plot.summary(shap_long)
