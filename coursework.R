@@ -166,7 +166,7 @@ CREATE_NEW_MODEL <- TRUE
 
 #carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
 
-smp_size <- floor(0.90 * nrow(carsToTrain))
+smp_size <- floor(0.975 * nrow(carsToTrain))
 
 train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
 
