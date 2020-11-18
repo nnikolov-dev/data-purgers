@@ -48,7 +48,8 @@ MYLIBRARIES<-c("outliers",
                "keras",
                "Metrics",
                "sjPlot",
-               "dplyr")
+               "dplyr",
+               "SHAPforxgboost")
 
 # User defined functions are next
 # ************************************************
@@ -86,7 +87,7 @@ cars <- subset(cars, manufacturer != "" & model != "")
 # Make sure price column is numeric
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
-cars <- subset(cars, price >= 200 && price <= 30000 && odometer <= 300000)
+cars <- subset(cars, price >= 200 & odometer <= 300000 & year >= 1990 & year <=2020)
 # Method to remove empty values
 removeEmptyVals <- function(dt) {
   colsCar<-colnames(dt)
@@ -146,6 +147,8 @@ print(dim(topTenCarManufacturersDF))
 
 # Dataframe Ready to train!
 carsToTrain <- topTenCarManufacturersDF
+shuffledCars <- carsToTrain[sample(nrow(carsToTrain)),]
+carsToTrain <- shuffledCars
 drops <- c(colsText)
 
 
@@ -158,26 +161,39 @@ CREATE_NEW_MODEL <- FALSE
 
 #carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
 
-smp_size <- floor(0.75 * nrow(carsToTrain))
+#smp_size <- floor(0.75 * nrow(carsToTrain))
 
-train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
-
-
-train <- carsToTrain[train_ind, ]
-test <- carsToTrain[-train_ind, ]
-
-
-#train <- subset(train,  `model encoded` <= 100)
-#test <- subset(test, `model encoded` <= 100)
-
-
-train_x <- subset(train, select = -c(price))
-train_y <- subset(train, select = c(price) )
+k <- 4
+indices <- sample(1:nrow(carsToTrain))
+folds <- cut(1:length(indices), breaks = k, labels = FALSE)
+for(i in 1:k){
+  test_indices <- which(folds == i, arr.ind = TRUE)
+  test_x <- carsToTrain[test_indices,]
+  test_y <- carsToTrain[test_indices,]
+  
+  # Prepare the training data: data from all other partitions
+  train_x <- carsToTrain[-test_indices,]
+  train_y <- carsToTrain[-test_indices,]
+  
+  train_x <- subset(train_x, select = -c(price))
+  train_y <- subset(train_y, select = c(price) )
+  
+  
+  test_x <- subset(test_x, select = -c(price))
+  test_y <- subset(test_y, select = c(price))
+}
+# train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
+# 
+# train <- carsToTrain[train_ind, ]
+# test <- carsToTrain[-train_ind, ]
+# 
+# train_x <- subset(train, select = -c(price))
+# train_y <- subset(train, select = c(price) )
 train_y_notNormalised <- train_y
-
-
-test_x <- subset(test, select = -c(price))
-test_y <- subset(test, select = c(price))
+# 
+# 
+# test_x <- subset(test, select = -c(price))
+# test_y <- subset(test, select = c(price))
 test_y_notNormalised <- test_y
 
 normalize <- function(x) {
@@ -192,9 +208,6 @@ train_x <- normalize(train_x)
 train_y <- normalize(train_y)
 test_x <- normalize(test_x)
 test_y <- normalize(test_y)
-
-
-
 
 
 library(xgboost)
