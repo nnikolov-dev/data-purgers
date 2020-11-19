@@ -79,14 +79,14 @@ cars <- carsInitial
 
 # Removing useless columns and 
 # id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
-cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus, fuel, transmission, type, size, cylinders, drive))
+cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus, fuel, transmission, type, size, drive, paintcolor))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
 cars <- subset(cars, manufacturer != "" & model != "")
 # Make sure price column is numeric
 cars <- subset(cars, is.numeric(price))
-# Remove rows with invalid or "bad" prices, typically <200
+# Remove rows with invalid or "bad" prices, typically < 200
 cars <- subset(cars, price >= 200 & odometer <= 300000 & year >= 1990 & year <=2020)
 # Method to remove empty values
 removeEmptyVals <- function(dt) {
@@ -223,7 +223,8 @@ denormalised <- denormalize(train_y,train_y_notNormalised)
 test_predictions <- model %>% predict(as.matrix(test_x))
   
 denormalised <- denormalize(test_predictions,train_y_notNormalised)
-  
+ 
+
 # Evaluate on test data and labels and find values
 mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
 sqrt_mean_abs_error <- rmse(test_y_notNormalised$price,denormalised)
@@ -232,9 +233,9 @@ print(paste("MAE +- $" , mean_abs_error))
 print(paste("RMSE +- $" , sqrt_mean_abs_error))
 
 
-
 #Adding the predicted prices to the dataframe
 test_y_notNormalised$predictedPrice <- denormalised
+test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice < 100000)
 #Creating a graph with price vs predicted price
 predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
 print(predictedPricesGraph)
@@ -244,10 +245,6 @@ test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice > 0)
 predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point() +
   geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)
 print(predictedPricesGraph)
-
-
-library("SHAPforxgboost")
-
 
 shap_values <- shap.values(xgb_model = model, X_train = test_x)
 shap_long <- shap.prep(shap_contrib = shap_values$shap_score, X_train = test_x)
