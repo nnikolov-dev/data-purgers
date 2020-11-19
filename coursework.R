@@ -87,7 +87,7 @@ cars <- subset(cars, manufacturer != "" & model != "")
 # Make sure price column is numeric
 cars <- subset(cars, is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically < 200
-cars <- subset(cars, price >= 200 & odometer <= 300000 & year >= 1990 & year <=2020)
+cars <- subset(cars, price >= 200 & price < 45000 & odometer <= 300000 & year >= 1990 & year <=2020)
 # Method to remove empty values
 removeEmptyVals <- function(dt) {
   colsCar<-colnames(dt)
@@ -163,7 +163,7 @@ CREATE_NEW_MODEL <- FALSE
 
 #smp_size <- floor(0.75 * nrow(carsToTrain))
 
-k <- 4
+k <- 5
 indices <- sample(1:nrow(carsToTrain))
 folds <- cut(1:length(indices), breaks = k, labels = FALSE)
 for(i in 1:k){
@@ -181,7 +181,7 @@ for(i in 1:k){
   
   test_x <- subset(test_x, select = -c(price))
   test_y <- subset(test_y, select = c(price))
-}
+
 # train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
 # 
 # train <- carsToTrain[train_ind, ]
@@ -237,13 +237,16 @@ print(paste("RMSE +- $" , sqrt_mean_abs_error))
 test_y_notNormalised$predictedPrice <- denormalised
 test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice < 100000)
 #Creating a graph with price vs predicted price
-predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
-print(predictedPricesGraph)
+#predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
+#print(predictedPricesGraph)
 #Removing the minus values from the dataframe
 test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice > 0)
 #Creating a graph with price vs predicted price
 predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point() +
-  geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)
+  geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5) +
+  geom_abline(intercept = -mean_abs_error, slope = 1, color="green",linetype="dashed", size=1.5)+
+  geom_abline(intercept = mean_abs_error, slope = 1, color="green",linetype="dashed", size=1.5)
+
 print(predictedPricesGraph)
 
 shap_values <- shap.values(xgb_model = model, X_train = test_x)
@@ -257,3 +260,13 @@ shap_long <- shap.prep(shap_contrib = shap_values$shap_score, X_train = as.matri
 
 # **SHAP summary plot**
 shap.plot.summary(shap_long)
+
+difference <- test_y_notNormalised$price - test_y_notNormalised$predictedPrice
+test_y_notNormalised$difference <- difference
+
+
+print(sum( (-mean_abs_error < test_y_notNormalised$difference) & (test_y_notNormalised$difference < mean_abs_error)))
+print(dim(test_y_notNormalised))
+
+
+}
