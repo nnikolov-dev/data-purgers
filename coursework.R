@@ -125,10 +125,10 @@ distributionOfPricePerYearGraph <- cars %>%
    labs(x = "Price", y = "Year")
 
 
-print(pricesGraph2)
-print(pricesGraph3)
-print(manufacturersGraph)
-print(distributionOfPricePerYearGraph)
+#print(pricesGraph2)
+#print(pricesGraph3)
+#print(manufacturersGraph)
+#print(distributionOfPricePerYearGraph)
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
@@ -213,135 +213,144 @@ print(dim(carsToTrain))
 
 #------------------------------------Initial NN--------------------------------
 
-# CREATE_NEW_MODEL <- TRUE
-# 
-# #carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
-# 
-# smp_size <- floor(0.975 * nrow(carsToTrain))
-# 
-# train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
-# 
-# 
-# train <- carsToTrain[train_ind, ]
-# test <- carsToTrain[-train_ind, ]
-# 
-# 
-# #train <- subset(train,  `model encoded` <= 100)
-# #test <- subset(test, `model encoded` <= 100)
-# 
-# 
-# train_x <- subset(train, select = -c(price))
-# train_y <- subset(train, select = c(price) )
-# train_y_notNormalised <- train_y
-# 
-# 
-# test_x <- subset(test, select = -c(price))
-# test_y <- subset(test, select = c(price))
-# test_y_notNormalised <- test_y
-# 
-# normalize <- function(x) {
-#   return ((x - min(x)) / (max(x) - min(x)))
-# }
-# 
-# denormalize <- function(x,y) {
-#   return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
-# }
-# 
-# 
-# train_y$price<-normalize(train_y$price)
-# test_y$price<-normalize(test_y$price)
-# 
-# if(CREATE_NEW_MODEL){
-#   # Initialize a sequential model
-#   model <- keras_model_sequential() 
-#   
-#   # Add layers to the model
-#   model %>% 
-#     layer_dense(units = 64, input_shape = ncol(train_x)) %>%
-#     layer_activation_leaky_relu() %>% 
-#     layer_dense(units = 64) %>%
-#     layer_activation_leaky_relu() %>% 
-#     layer_dense(units = 1, activation = "linear")
-#     #layer_activation_leaky_relu()
-#   
-#   
-#   # Print a summary of a model
-#   summary(model)
-#   
-#   # Get model configuration
-#   get_config(model)
-#   
-#   # Get layer configuration
-#   get_layer(model, index = 1)
-#   
-#   # List the model's layers
-#   model$layers
-#   
-#   # List the input tensors
-#   model$inputs
-#   
-#   # List the output tensors
-#   model$outputs
-#   
-#   # Compile the model
-#   model %>% compile(
-#     loss = 'mse',
-#     optimizer = optimizer_rmsprop(),
-#     metrics = c("mse", "mae")
-#   )
-#   xmatrixre <- as.matrix(train_x)
-#   ymatrixre <- data.matrix(train_y)
-#   
-#   print(dim(train_x))
-#   print(dim(train_y))
-#   print(ncol(train_x))
-#   
-#   #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
-#   
-#   # Fit the model 
-#   history <- model %>% fit(
-#     x = as.matrix(train_x),
-#     y = as.matrix(train_y),
-#     epochs = 30,
-#     validation_split = 0.3,
-#     batch_size = 16,
-#     verbose = 1,
-#   )
-#   #Saving the model so that it can be reused
-#   model %>% save_model_tf("model")
-#   print(history)
-#   
-# }else
-#   {
-#   #Reusing the saved model
-#   model <- load_model_tf("model")
-#   summary(model)
-# }
-# 
-# denormalised <- denormalize(train_y,train_y_notNormalised)
-# 
-# test_predictions <- model %>% predict(as.matrix(test_x))
-# test_predictions[ , 1]
-# 
-# denormalised <- denormalize(test_predictions,train_y_notNormalised)
-# 
-# # Evaluate on test data and labels and find values
-# score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-# mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
-# # Print the mean absolute error
-# print(paste("The model is off by +- $" , mean_abs_error))
-# 
-# #Adding the predicted prices to the dataframe
-# test_y_notNormalised$predictedPrice <- denormalised
-# #Creating a graph with price vs predicted price
-# predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
-# print(predictedPricesGraph)
-# #Removing the minus values from the dataframe
-# test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice > 0)
-# #Creating a graph with price vs predicted price
-# predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point() +
-#   geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)
-# print(predictedPricesGraph)
+ CREATE_NEW_MODEL <- FALSE
+ 
+ #carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
+ 
+ smp_size <- floor(0.975 * nrow(carsToTrain))
+ 
+ train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
+ 
+ 
+ train <- carsToTrain[train_ind, ]
+ test <- carsToTrain[-train_ind, ]
+ 
+ 
+ #train <- subset(train,  `model encoded` <= 100)
+ #test <- subset(test, `model encoded` <= 100)
+ 
+ 
+ train_x <- subset(train, select = -c(price))
+ train_y <- subset(train, select = c(price) )
+ train_y_notNormalised <- train_y
+ 
+ 
+ test_x <- subset(test, select = -c(price))
+ test_y <- subset(test, select = c(price))
+ test_y_notNormalised <- test_y
+ 
+ normalize <- function(x) {
+   return ((x - min(x)) / (max(x) - min(x)))
+ }
+ 
+ denormalize <- function(x,y) {
+   return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
+ }
+ 
+ 
+ train_y$price<-normalize(train_y$price)
+ test_y$price<-normalize(test_y$price)
+ 
+ if(CREATE_NEW_MODEL){
+   # Initialize a sequential model
+   model <- keras_model_sequential() 
+   
+   # Add layers to the model
+   model %>% 
+     layer_dense(units = 64, input_shape = ncol(train_x)) %>%
+     layer_activation_leaky_relu() %>% 
+     layer_dense(units = 64) %>%
+     layer_activation_leaky_relu() %>% 
+    layer_dense(units = 1, activation = "linear")
+    #layer_activation_leaky_relu()
+
+
+  # Print a summary of a model
+  summary(model)
+
+  # Get model configuration
+  get_config(model)
+
+  # Get layer configuration
+  get_layer(model, index = 1)
+
+  # List the model's layers
+  model$layers
+
+  # List the input tensors
+  model$inputs
+
+  # List the output tensors
+  model$outputs
+
+  # Compile the model
+  model %>% compile(
+    loss = 'mse',
+    optimizer = optimizer_rmsprop(),
+    metrics = c("mse", "mae")
+  )
+  xmatrixre <- as.matrix(train_x)
+  ymatrixre <- data.matrix(train_y)
+
+  print(dim(train_x))
+  print(dim(train_y))
+  print(ncol(train_x))
+
+  #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
+
+  # Fit the model
+  history <- model %>% fit(
+    x = as.matrix(train_x),
+    y = as.matrix(train_y),
+    epochs = 30,
+    validation_split = 0.3,
+    batch_size = 16,
+    verbose = 1,
+  )
+  #Saving the model so that it can be reused
+  model %>% save_model_tf("model1")
+  print(history)
+
+}else
+  {
+  #Reusing the saved model
+  model <- load_model_tf("model1")
+  summary(model)
+}
+
+denormalised <- denormalize(train_y,train_y_notNormalised)
+
+test_predictions <- model %>% predict(as.matrix(test_x))
+test_predictions[ , 1]
+
+denormalised <- denormalize(test_predictions,train_y_notNormalised)
+
+# Evaluate on test data and labels and find values
+score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
+mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+# Print the mean absolute error
+print(paste("The model is off by +- $" , mean_abs_error))
+
+#Adding the predicted prices to the dataframe
+test_y_notNormalised$predictedPrice <- denormalised
+#Creating a graph with price vs predicted price
+predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point()
+print(predictedPricesGraph)
+#Removing the minus values from the dataframe
+test_y_notNormalised <- subset(test_y_notNormalised, predictedPrice > 0)
+#Creating a graph with price vs predicted price
+predictedPricesGraph <- ggplot(data = test_y_notNormalised, aes(x = price, y = predictedPrice)) + geom_point() +
+  geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)+
+   geom_abline(intercept = 2000, slope = 1, color="green",linetype="dashed", size=1.5)+
+   geom_abline(intercept = -2000, slope = 1, color="green",linetype="dashed", size=1.5)
+print(predictedPricesGraph)
+
+difference <- test_y_notNormalised$price - test_y_notNormalised$predictedPrice
+test_y_notNormalised$difference <- difference
+
+
+print(sum( (-2000 < test_y_notNormalised$difference) & (test_y_notNormalised$difference < 2000)))
+print(dim(test_y_notNormalised))
 
 
 #Graph of Neural Network
@@ -361,155 +370,164 @@ print(dim(carsToTrain))
 #results <- data.frame(actual = test$price, prediction = nn.results$net.result)
 
 # Plot of number of cars for the top 10 manufacturers
-#manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
+manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
 
 
 #------------------------------------ SPRINT #2 --------------------------------
 
-# carsToTrain <- subset(carsToTrain, select = -c(`fuel encoded`,`transmission encoded`,`type encoded`,`size encoded`,`cylinders encoded`,`drive encoded`))
-# carsToTrain <- subset(carsToTrain, odometer <= 300000 & odometer >= 1000)
-# 
-# carsToTrain <- carsToTrain[sample(1:nrow(carsToTrain)),]
-# testData <- carsToTrain[sample(1:1000),]
-# test_x <- subset(testData, select = -c(price))
-# test_y <- subset(testData, select = c(price) )
-# test_y_notNormalised <- test_y
-# test_y$price<-normalize(test_y$price)
-# 
-# CREATE_NEW_MODEL <- TRUE
-# 
-# k <- 5
-# indices <- sample(1:nrow(carsToTrain))
-# folds <- cut(1:length(indices), breaks = k, labels = FALSE)
-# scoresList <- list()
-# 
-# for(i in 1:k){
-#   print(paste("Fold number", i))
-#   val_indices <- which(folds == i, arr.ind = TRUE)
-#   val_x <- carsToTrain[val_indices,]
-#   val_y <- carsToTrain[val_indices,]
-#   
-#   # Prepare the training data: data from all other partitions
-#   train_x <- carsToTrain[-val_indices,]
-#   train_y <- carsToTrain[-val_indices,]
-#   
-#   train_x <- subset(train_x, select = -c(price))
-#   train_y <- subset(train_y, select = c(price) )
-#   train_y_notNormalised <- train_y
-#   
-#   val_x <- subset(val_x, select = -c(price))
-#   val_y <- subset(val_y, select = c(price))
-#   val_y_notNormalised <- val_y
-#   
-#   normalize <- function(x) {
-#     return ((x - min(x)) / (max(x) - min(x)))
-#   }
-#   
-#   denormalize <- function(x,y) {
-#     return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
-#   }
-#   
-#   
-#   train_y$price<-normalize(train_y$price)
-#   val_y$price<-normalize(val_y$price)
-#   
-#   if(CREATE_NEW_MODEL){
-#     # Initialize a sequential model
-#     model <- keras_model_sequential() 
-#     
-#     # Add layers to the model
-#     model %>% 
-#       layer_dense(units = 64, input_shape = ncol(train_x)) %>%
-#       layer_activation_leaky_relu() %>% 
-#       layer_dense(units = 64) %>%
-#       layer_activation_leaky_relu() %>% 
-#       layer_dense(units = 1, activation = "linear")
-#     #layer_activation_leaky_relu()
-#     
-#     
-#     # Print a summary of a model
-#     summary(model)
-#     
-#     # Get model configuration
-#     get_config(model)
-#     
-#     # Get layer configuration
-#     get_layer(model, index = 1)
-#     
-#     # List the model's layers
-#     model$layers
-#     
-#     # List the input tensors
-#     model$inputs
-#     
-#     # List the output tensors
-#     model$outputs
-#     
-#     # Compile the model
-#     model %>% compile(
-#       loss = 'mse',
-#       optimizer = optimizer_rmsprop(),
-#       metrics = c("mse", "mae")
-#     )
-#     xmatrixre <- as.matrix(train_x)
-#     ymatrixre <- data.matrix(train_y)
-#     
-#     print(dim(train_x))
-#     print(dim(train_y))
-#     print(ncol(train_x))
-#     
-#     #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
-#     
-#     # Fit the model 
-#     history <- model %>% fit(
-#       x = as.matrix(train_x),
-#       y = as.matrix(train_y),
-#       epochs = 30,
-#       validation_data = list(as.matrix(val_x),as.matrix(val_y)),
-#       batch_size = 16,
-#       verbose = 1,
-#     )
-#     #Saving the model so that it can be reused
-#     model %>% save_model_tf("model")
-#     print(history)
-#     
-#   }else
-#   {
-#     #Reusing the saved model
-#     model <- load_model_tf("model")
-#     summary(model)
-#   }
-#   
-#   denormalised <- denormalize(train_y,train_y_notNormalised)
-#   
-#   test_predictions <- model %>% predict(as.matrix(test_x))
-#   test_predictions[ , 1]
-#   
-#   denormalised <- denormalize(test_predictions,train_y_notNormalised)
-#   
-#   # Evaluate on test data and labels and find values
-#   score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-#   mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
-#   # Print the mean absolute error
-#   print(paste("The model in the",i,"fold is off by +- $" , mean_abs_error))
-#   #Saving the scores
-#   scoresList <- c(scoresList, score, mean_abs_error)
-#   #Adding the predicted prices to the dataframe
-#   test_y_notNormalisedCopy <- test_y_notNormalised
-#   test_y_notNormalisedCopy$predictedPrice <- denormalised
-#   #Creating a graph with price vs predicted price
-#   #predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point()
-#   #print(predictedPricesGraph)
-#   #Removing the minus values from the dataframe
-#   test_y_notNormalisedCopy <- subset(test_y_notNormalisedCopy, predictedPrice > 0)
-#   #Creating a graph with price vs predicted price
-#   predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point() +
-#     geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)
-#   print(predictedPricesGraph)
-# }
+carsToTrain <- subset(carsToTrain, select = -c(`fuel encoded`,`transmission encoded`,`type encoded`,`size encoded`,`cylinders encoded`,`drive encoded`))
+carsToTrain <- subset(carsToTrain, odometer <= 300000 & odometer >= 1000)
+
+carsToTrain <- carsToTrain[sample(1:nrow(carsToTrain)),]
+testData <- carsToTrain[sample(1:1000),]
+test_x <- subset(testData, select = -c(price))
+test_y <- subset(testData, select = c(price) )
+test_y_notNormalised <- test_y
+test_y$price<-normalize(test_y$price)
+
+CREATE_NEW_MODEL <- TRUE
+
+k <- 5
+indices <- sample(1:nrow(carsToTrain))
+folds <- cut(1:length(indices), breaks = k, labels = FALSE)
+scoresList <- list()
+
+for(i in 1:k){
+  print(paste("Fold number", i))
+  val_indices <- which(folds == i, arr.ind = TRUE)
+  val_x <- carsToTrain[val_indices,]
+  val_y <- carsToTrain[val_indices,]
+
+  # Prepare the training data: data from all other partitions
+  train_x <- carsToTrain[-val_indices,]
+  train_y <- carsToTrain[-val_indices,]
+
+  train_x <- subset(train_x, select = -c(price))
+  train_y <- subset(train_y, select = c(price) )
+  train_y_notNormalised <- train_y
+
+  val_x <- subset(val_x, select = -c(price))
+  val_y <- subset(val_y, select = c(price))
+  val_y_notNormalised <- val_y
+
+  normalize <- function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+  }
+
+  denormalize <- function(x,y) {
+    return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
+  }
+
+
+  train_y$price<-normalize(train_y$price)
+  val_y$price<-normalize(val_y$price)
+
+  if(CREATE_NEW_MODEL){
+    # Initialize a sequential model
+    model <- keras_model_sequential()
+
+    # Add layers to the model
+    model %>%
+      layer_dense(units = 64, input_shape = ncol(train_x)) %>%
+      layer_activation_leaky_relu() %>%
+      layer_dense(units = 64) %>%
+      layer_activation_leaky_relu() %>%
+      layer_dense(units = 1, activation = "linear")
+    #layer_activation_leaky_relu()
+
+
+    # Print a summary of a model
+    summary(model)
+
+    # Get model configuration
+    get_config(model)
+
+    # Get layer configuration
+    get_layer(model, index = 1)
+
+    # List the model's layers
+    model$layers
+
+    # List the input tensors
+    model$inputs
+
+    # List the output tensors
+    model$outputs
+
+    # Compile the model
+    model %>% compile(
+      loss = 'mse',
+      optimizer = optimizer_rmsprop(),
+      metrics = c("mse", "mae")
+    )
+    xmatrixre <- as.matrix(train_x)
+    ymatrixre <- data.matrix(train_y)
+
+    print(dim(train_x))
+    print(dim(train_y))
+    print(ncol(train_x))
+
+    #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
+
+    # Fit the model
+    history <- model %>% fit(
+      x = as.matrix(train_x),
+      y = as.matrix(train_y),
+      epochs = 30,
+      validation_data = list(as.matrix(val_x),as.matrix(val_y)),
+      batch_size = 16,
+      verbose = 1,
+    )
+    #Saving the model so that it can be reused
+    model %>% save_model_tf("model2")
+    print(history)
+
+  }else
+  {
+    #Reusing the saved model
+    model <- load_model_tf("model2")
+    summary(model)
+  }
+
+  denormalised <- denormalize(train_y,train_y_notNormalised)
+
+  test_predictions <- model %>% predict(as.matrix(test_x))
+  test_predictions[ , 1]
+
+  denormalised <- denormalize(test_predictions,train_y_notNormalised)
+
+  # Evaluate on test data and labels and find values
+  score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
+  mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+  # Print the mean absolute error
+  print(paste("The model in the",i,"fold is off by +- $" , mean_abs_error))
+  #Saving the scores
+  scoresList <- c(scoresList, score, mean_abs_error)
+  #Adding the predicted prices to the dataframe
+  test_y_notNormalisedCopy <- test_y_notNormalised
+  test_y_notNormalisedCopy$predictedPrice <- denormalised
+  #Creating a graph with price vs predicted price
+  #predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point()
+  #print(predictedPricesGraph)
+  #Removing the minus values from the dataframe
+  test_y_notNormalisedCopy <- subset(test_y_notNormalisedCopy, predictedPrice > 0)
+  #Creating a graph with price vs predicted price
+  predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point() +
+    geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)+
+      geom_abline(intercept = 2000, slope = 1, color="green",linetype="dashed", size=1.5)+
+      geom_abline(intercept = -2000, slope = 1, color="green",linetype="dashed", size=1.5)
+  print(predictedPricesGraph)
+  
+  difference <- test_y_notNormalisedCopy$price - test_y_notNormalisedCopy$predictedPrice
+  test_y_notNormalisedCopy$difference <- difference
+  
+  
+  print(sum( (-2000 < test_y_notNormalisedCopy$difference) & (test_y_notNormalisedCopy$difference < 2000)))
+  print(dim(test_y_notNormalisedCopy))
+}
 
 #------------------------------------ SPRINT #3 --------------------------------
-CREATE_NEW_MODEL <- TRUE
+CREATE_NEW_MODEL <- FALSE
 normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
 }
@@ -519,13 +537,13 @@ denormalize <- function(x,y) {
 }
 
 
-carsToTrain <- subset(carsToTrain, select = -c(`fuel encoded`,`transmission encoded`,`type encoded`,`size encoded`,`cylinders encoded`,`drive encoded`, `paintcolor encoded`))
+#carsToTrain <- subset(carsToTrain, select = -c(`fuel encoded`,`transmission encoded`,`type encoded`,`size encoded`,`cylinders encoded`,`drive encoded`, `paintcolor encoded`))
 carsToTrain <- subset(carsToTrain, odometer <= 300000 & odometer >= 1000)
-carsToTrain <- subset(carsToTrain, year >= 1990)
+carsToTrain <- subset(carsToTrain, year >= 2000)
 #carsToTrain$odometer <- round(carsToTrain$odometer, -4)
 #carsToTrain$price <- round(carsToTrain$price, -2)
 
-mostCommonModels <- tail(names(sort(table(carsToTrain$`model encoded`))), 1)
+mostCommonModels <- tail(names(sort(table(carsToTrain$`model encoded`))), 30)
 carsToTrain <- subset(carsToTrain, `model encoded` %in% mostCommonModels)
 
 smp_size <- floor(0.9 * nrow(carsToTrain))
@@ -613,17 +631,17 @@ test_y$price<-normalize(test_y$price)
           epochs = 100,
           validation_split = 0.2,
           batch_size = 16,
-          callbacks = EarlyStopping(monitor='mae', mode = 'min', patience = 10 ,verbose = 1),
+          #callbacks = EarlyStopping(monitor='mae', mode = 'min', patience = 10 ,verbose = 1),
           verbose = 1,
         )
      #Saving the model so that it can be reused
-     model %>% save_model_tf("model")
+     model %>% save_model_tf("model3")
      print(history)
      
    }else
    {
      #Reusing the saved model
-     model <- load_model_tf("model")
+     model <- load_model_tf("model3")
      summary(model)
    }
    
