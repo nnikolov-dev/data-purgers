@@ -213,7 +213,7 @@ print(dim(carsToTrain))
 
 #------------------------------------Initial NN--------------------------------
 
- CREATE_NEW_MODEL <- FALSE
+ CREATE_NEW_MODEL <- TRUE
  
  #carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
  
@@ -259,7 +259,7 @@ print(dim(carsToTrain))
    model %>% 
      layer_dense(units = 64, input_shape = ncol(train_x)) %>%
      layer_activation_leaky_relu() %>% 
-     layer_dense(units = 64) %>%
+     layer_dense(units = 32) %>%
      layer_activation_leaky_relu() %>% 
     layer_dense(units = 1, activation = "linear")
     #layer_activation_leaky_relu()
@@ -327,9 +327,10 @@ denormalised <- denormalize(test_predictions,train_y_notNormalised)
 
 # Evaluate on test data and labels and find values
 score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+mean_abs_error_1 <- mae(test_y_notNormalised$price,denormalised)
+mean_square_error_1 <- mse(test_y_notNormalised$price,denormalised)
 # Print the mean absolute error
-print(paste("The model is off by +- $" , mean_abs_error))
+print(paste("The model is off by +- $" , mean_abs_error_1))
 
 #Adding the predicted prices to the dataframe
 test_y_notNormalised$predictedPrice <- denormalised
@@ -498,11 +499,12 @@ for(i in 1:k){
 
   # Evaluate on test data and labels and find values
   score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-  mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+  mean_abs_error_2 <- mae(test_y_notNormalised$price,denormalised)
+  mean_square_error_2 <- mse(test_y_notNormalised$price,denormalised)
   # Print the mean absolute error
-  print(paste("The model in the",i,"fold is off by +- $" , mean_abs_error))
+  print(paste("The model in the",i,"fold is off by +- $" , mean_abs_error_2))
   #Saving the scores
-  scoresList <- c(scoresList, score, mean_abs_error)
+  scoresList <- c(scoresList, score, mean_abs_error_2)
   #Adding the predicted prices to the dataframe
   test_y_notNormalisedCopy <- test_y_notNormalised
   test_y_notNormalisedCopy$predictedPrice <- denormalised
@@ -527,7 +529,7 @@ for(i in 1:k){
 }
 
 #------------------------------------ SPRINT #3 --------------------------------
-CREATE_NEW_MODEL <- FALSE
+CREATE_NEW_MODEL <- TRUE
 normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
 }
@@ -586,7 +588,9 @@ test_y$price<-normalize(test_y$price)
        layer_dense(units = 64, input_shape = ncol(train_x)) %>%
        layer_activation_leaky_relu() %>% 
        layer_dense(units = 64) %>%
-       layer_activation_leaky_relu() %>% 
+       layer_dropout(0.2) %>%
+       layer_activation_leaky_relu() %>%
+       layer_dropout(0.2) %>%
        layer_dense(units = 1, activation = "linear")
      #layer_activation_leaky_relu()
      
@@ -654,9 +658,10 @@ test_y$price<-normalize(test_y$price)
    
    # Evaluate on test data and labels and find values
    score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-   mean_abs_error <- mae(test_y_notNormalised$price,denormalised)
+   mean_abs_error_3 <- mae(test_y_notNormalised$price,denormalised)
+   mean_square_error_3 <- mse(test_y_notNormalised$price,denormalised)
    # Print the mean absolute error
-   print(paste("The model in the is off by +- $" , mean_abs_error))
+   print(paste("The model in the is off by +- $" , mean_abs_error_3))
    #Saving the scores
    #Adding the predicted prices to the dataframe
    test_y_notNormalisedCopy <- test_y_notNormalised
@@ -680,5 +685,10 @@ test_y$price<-normalize(test_y$price)
    print(sum( (-2000 < test_y_notNormalisedCopy$difference) & (test_y_notNormalisedCopy$difference < 2000)))
    print(dim(test_y_notNormalisedCopy))
    
+   #----------------- Comparing the NNs -----------------
+   mae_list <- c(mean_abs_error_1, mean_abs_error_2, mean_abs_error_3)
+   mse_list <- c(mean_square_error_1, mean_square_error_2, mean_square_error_3)
+   barplot(mae_list, main = "Mean Absolute Error for each NN", xlab = "NN Model", ylab = "MAE", names.arg = c("Sprint 1", "Sprint 2", "Sprint 3"))
+   barplot(mse_list, main = "Mean Square Error for each NN", xlab = "NN Model", ylab = "MSE", names.arg = c("Sprint 1", "Sprint 2", "Sprint 3"))
 #}
 
