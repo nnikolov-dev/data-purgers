@@ -45,7 +45,8 @@ OUTPUT_FIELD      <- "price"
 # formattable 	         0.2.0.1
 # stats                  4.0.3
 # PerformanceAnalytics   2.0.4
-# C50                    0.1.3.1
+# ggplot2                3.3.2
+# caret                  6.0-86
 
 MYLIBRARIES<-c("outliers",
                "corrplot",
@@ -55,72 +56,68 @@ MYLIBRARIES<-c("outliers",
                "stats",
                "PerformanceAnalytics",
                "caret",
-               "randomForest")
+               "data.table",
+               "CatEncoders")
 
 # User defined functions are next
-# ************************************************
-# getTreeClassifications() :
-#
-# Put in test dataset and get out class predictions of the decision tree
-# Determine the threshold, plot the results and calculate metrics
-#
-# INPUT : object - myTree - tree
-# : Data Frame - testDataset - dataset to evaluate
-# : string - title - string to plot as the chart title
-# : int - classLabel - lable given to the positive (TRUE)class
-# : boolean - plot - TRUE to output results/charts
-#
-# OUTPUT : List - Named evaluation measures
-#
-# ************************************************
-getTreeClassifications<-function(myTree,
-                                 testDataset,
-                                 title,
-                                 classLabel=1,
-                                 plot=TRUE){
-  
-  positionClassOutput=which(names(testDataset)==OUTPUT_FIELD)
-  
-  #test data: dataframe with with just input fields
-  test_inputs<-testDataset[-positionClassOutput]
-  
-  # Generate class membership probabilities
-  # Column 1 is for class 0 (bad loan) and column 2 is for class 1 (good loan)
-  
-  testPredictedClassProbs<-predict(myTree,test_inputs,type="prob")
-  
-  # Get the column index with the class label
-  classIndex<-which(as.numeric(colnames(testPredictedClassProbs))==classLabel)
-  
-  # Get the probabilities for classifying the good loans
-  test_predictedProbs<-testPredictedClassProbs[,classIndex]
-  
-  #test data: vector with just the expected output class
-  test_expected<-testDataset[,positionClassOutput]
-  
-  measures<-NdetermineThreshold(test_expected=test_expected,
-                                test_predicted=test_predictedProbs,
-                                plot=plot,
-                                title=title)
-  
-  if (plot==TRUE)
-    NprintMeasures(results=measures,title=title)
-  
-  return(measures)
-} #endof getTreeClassifications()
 
 # ************************************************
+# fieldTypes() :
+#
+# Printing the type of each field
+#
+# INPUT   :   data frame         - dataset        - dataset
+#
+# OUTPUT  :   None
+#
+# ************************************************
+fieldTypes<-function(datataset){
+  field_types_initial<-NPREPROCESSING_initialFieldType(datataset)
+  numeric_fields<-c()
+  symbolic_fields<-c()
+  for(i in 1:length(field_types_initial)) {
+    if(field_types_initial[i]==TYPE_NUMERIC) {
+      numeric_fields<-append(numeric_fields,names(datataset)[i])
+    } else if(field_types_initial[i]==TYPE_SYMBOLIC) {
+      symbolic_fields = append(symbolic_fields,names(datataset)[i])
+    }
+  }
+  field_types<-NPREPROCESSING_discreetNumeric(datataset,field_types_initial,DISCREET_BINS)
+  results<-data.frame(field=names(datataset),initial=field_types_initial,final=field_types)
+  print(formattable::formattable(results))
+} #endof fieldTypes()
+
+# ************************************************
+# labelEncode() :
+#
+# Encodes each label in the dataset using the LabelEncoder.fit function from the
+# CatEncoders package
+#
+# INPUT   :   data frame         - dataset        - dataset
+#
+# OUTPUT  :   data frame         - dataset        - dataset with encoded labels
+#
+# ************************************************
+labelEncode<-function(dataset){
+  cat_cols<-dplyr::select_if(dataset, is.character)
+  colsText<-colnames(cat_cols)
+  #Label Encoder
+  for(col in colsText){
+    fit<-LabelEncoder.fit(dataset[,col])
+    toAdd<-paste(col,"encoded",sep="")
+    dataset[,toAdd]<-transform(fit,dataset[,col])
+  }
+  return(dataset)
+} #endof labelEncode()
+
 # This is where R starts execution
-
-# clears the console area
-# cat("\014")
 
 # Loads the libraries
 library(pacman)
 pacman::p_load(char=MYLIBRARIES,install=TRUE,character.only=TRUE)
 
 # Set scientific notation to a sensible number of digits
-options(scipen = 8)
+options(scipen=8)
 
 # Load additional R script files provide for this lab
 source("dataPrep.R")
@@ -128,73 +125,69 @@ source("functions.R")
 set.seed(123)
 
 # Loading the data
-carsInitial <- NreadDataset(DATASET_FILENAME)
-cars <- carsInitial
-# cars <- NPREPROCESSING_prettyDataset(carsInitial)
-
-
+carsInitial<-NreadDataset(DATASET_FILENAME)
+cars<-carsInitial
 
 # Removing useless columns and 
 # id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
-cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus))
+cars<-subset(cars,select=-c(id,url,county,regionurl,imageurl,lat,long,description,vin,state,region,titlestatus))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
 # Remove rows without designated model/manufacturer
-cars <- subset(cars, manufacturer != "" & model != "")
+cars<-subset(cars,manufacturer != "" & model != "")
 # Make sure price column is numeric
-cars <- subset(cars, is.numeric(price))
+cars<-subset(cars,is.numeric(price))
 # Remove rows with invalid or "bad" prices, typically <200
-cars <- subset(cars, price >= 200)
+cars<-subset(cars,price>=200)
 # Method to remove empty values
-removeEmptyVals <- function(dt) {
+removeEmptyVals<-function(dt) {
   colsCar<-colnames(dt)
   for (col in colsCar){
-    dt <- dt[!(is.na(dt[,col]) | dt[,col]==""), ]
+    dt<-dt[!(is.na(dt[,col]) | dt[,col]==""),]
   }
   return(dt)
 }
-cars<-removeEmptyVals(cars)
 
+cars<-removeEmptyVals(cars)
 print(dim(cars))
+
+# ---------------------------------------------- Field Types ----------------------------------------------
+fieldTypes(cars)
 # ---------------------------------------------- Initial plotting ----------------------------------------------
 
 # Plot of number of data before and after clean-up
-totalCarsPreCleanup <- nrow(carsInitial)
-totalCarsPostCleanup <- nrow(cars)
-barplot(c(totalCarsPreCleanup, totalCarsPostCleanup), main = "No. of Rows Before/After Cleanup")
+totalCarsPreCleanup<-nrow(carsInitial)
+totalCarsPostCleanup<-nrow(cars)
+barplot(c(totalCarsPreCleanup, totalCarsPostCleanup),main="No. of Rows Before/After Cleanup")
 
 # Condition of cars
-conditionTable <- table(cars$condition)
-barplot(conditionTable, main = "Condition of cars",
-        xlab = "Condition", ylab = "No. of Cars")
+conditionTable<-table(cars$condition)
+barplot(conditionTable,
+        main="Condition of cars",
+        xlab="Condition",
+        ylab="No. of Cars")
 
 # Get the top 10 manufacturers
-mostCommonManufacturers <- tail(names(sort(table(cars$manufacturer))), 10)
+mostCommonManufacturers<-tail(names(sort(table(cars$manufacturer))),10)
 
 # New data frame constructed with only the data of the top 10 manufacturers included
-topTenCarManufacturersDF <- subset(cars, manufacturer %in% mostCommonManufacturers)
+topTenCarManufacturersDF<-subset(cars, manufacturer %in% mostCommonManufacturers)
 
 # Plot of number of cars for the top 10 manufacturers
-manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
-barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
-        xlab = "Manufacturers", ylab = "No. of Cars")
+manufacturerTop10Table<-table(topTenCarManufacturersDF$manufacturer)
+barplot(manufacturerTop10Table,
+        main="Top 10 Car Manufacturers Distribution",
+        xlab="Manufacturers",
+        ylab="No. of Cars")
 
 # Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
 with(cars,plot(odometer,price))
 
-library(data.table)
-library(CatEncoders)
-#Get Categorical values
-cat_cols <- dplyr::select_if(topTenCarManufacturersDF, is.character)
-colsText<-colnames(cat_cols)
-#Label Encoder
-for (col in colsText){
-  fit<-LabelEncoder.fit(topTenCarManufacturersDF[,col])
-  toAdd<-paste(col, "encoded", sep="")
-  topTenCarManufacturersDF[,toAdd]<-transform(fit,topTenCarManufacturersDF[,col])
-}
+# Encode Labels
+topTenCarManufacturersDF<-labelEncode(topTenCarManufacturersDF)
+
 # Clean data - Remove Empty values
-topTenCarManufacturersDF <- removeEmptyVals(topTenCarManufacturersDF)
+topTenCarManufacturersDF<-removeEmptyVals(topTenCarManufacturersDF)
 print("Print Dimension of top 10 car manufactures:")
 print(dim(topTenCarManufacturersDF))
 # Method for Data Visualisation - Needed for diagnosis
@@ -209,23 +202,11 @@ print(dim(topTenCarManufacturersDF))
 #}
 
 # Dataframe Ready to train!
-carsToTrain <- topTenCarManufacturersDF
-drops <- c(colsText)
+cat_cols<-dplyr::select_if(topTenCarManufacturersDF, is.character)
+colsText<-colnames(cat_cols)
+carsToTrain<-topTenCarManufacturersDF
+drops<-c(colsText)
 
-
-carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% drops)]
+carsToTrain<-topTenCarManufacturersDF[,!(names(topTenCarManufacturersDF) %in% drops)]
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
-
-# ------------------ Random Forest ------------------ 
-# carsToTrain <- carsToTrain[,!(names(carsToTrain) %in% c("cylindersencoded", "driveencoded", "paintcolorencoded", "typeencoded", "transmissionencoded"))]
-ntrees <- c(50, 100, 200, 300)
-for (ntree in ntrees) {
-  rf_classifier <- randomForest(
-    # formula = price ~ year + odometer + manufacturerencoded + modelencoded + conditionencoded + cylindersencoded + fuelencoded + transmissionencoded + driveencoded + sizeencoded + typeencoded + paintcolorencoded,
-    formula = price ~ year + odometer,
-    data = carsToTrain,
-    ntree = ntree,
-    importance = TRUE)
-  print(rf_classifier)
-}
