@@ -114,8 +114,11 @@ topTenCarManufacturersDF <- subset(cars, manufacturer %in% mostCommonManufacture
 
 # Plot of number of cars for the top 10 manufacturers
 manufacturerTop10Table <- table(topTenCarManufacturersDF$manufacturer)
+
+
 barplot(manufacturerTop10Table, main = "Top 10 Car Manufacturers Distribution",
-        xlab = "Manufacturers", ylab = "No. of Cars")
+        xlab = "Manufacturers", ylab = "No. of Cars", col = "darkred", horiz = TRUE)
+
 
 # Scatter plot of car mileage relative to price -- this looks way too bad. perhaps we still have too much unreliable data?
 with(cars,plot(odometer,price))
@@ -162,11 +165,38 @@ normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
 }
 
-normalized_data <- normalize(carsToTrain)
+
+smp_size <- floor(0.85 * nrow(carsToTrain))
+train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
+
+train <- carsToTrain[train_ind, ]
+test <- carsToTrain[-train_ind, ]
+
+normalized_data <- normalize(train)
 print(head(normalized_data))
 
-output.forest <- randomForest(price ~ year + odometer + manufacturerEncoded + modelEncoded + conditionEncoded + cylindersEncoded + fuelEncoded + transmissionEncoded + driveEncoded + sizeEncoded + typeEncoded + paintcolorEncoded, data = normalized_data, importance= TRUE)
+output.forest <- randomForest(price ~ ., data = train, importance = TRUE, ntree = 4)
+
+oob.err=double(5)
+test.err=double(5)
+
+for(mtry in 1:5) 
+{
+  rf=randomForest(price ~ . , data = train , mtry=mtry,ntree=400) 
+  oob.err[mtry] = rf$mse[400] #Error of all Trees fitted
+  
+  pred<-predict(rf,carsToTrain[-train_ind, ]) #Predictions on Test Set for each Tree
+  test.err[mtry]= with(carsToTrain[-train_ind, ], mean( (price - pred)^2)) #Mean Squared Test Error
+  
+  cat(mtry," ") #printing the output to the console
+  
+}
+
+matplot(1:mtry , cbind(oob.err,test.err), pch=19 , col=c("red","blue"),type="b",ylab="Mean Squared Error",xlab="Number of Predictors Considered at each Split")
+legend("topright",legend=c("Out of Bag Error","Test Error"),pch=19, col=c("red","blue"))
 
 print(output.forest)
+
+print(round(importance(output.forest), 2))
 
 plot(output.forest)
