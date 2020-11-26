@@ -49,6 +49,7 @@ MYLIBRARIES<-c("outliers",
                "Metrics",
                "sjPlot",
                "dplyr",
+               "xgboost",
                "SHAPforxgboost")
 
 # User defined functions are next
@@ -73,12 +74,9 @@ set.seed(123)
 # Loading the data
 carsInitial <- NreadDataset(DATASET_FILENAME)
 cars <- carsInitial
-# cars <- NPREPROCESSING_prettyDataset(cars)
-
-
 
 # Removing useless columns and 
-# id, url, county, regionurl, imageurl, lat, long, description, vin, state, region, titlestatus
+# id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus, fuel, transmission, type, size, drive, paintcolor
 cars <- subset(cars, select = -c(id, url, county, regionurl, imageurl, lat, long, description, vin,state,region, titlestatus, fuel, transmission, type, size, drive, paintcolor))
 
 # ---------------------------------------------- Data clean-up ----------------------------------------------
@@ -159,10 +157,6 @@ print(dim(carsToTrain))
 
 CREATE_NEW_MODEL <- FALSE
 
-#carsToTrain <- subset(carsToTrain, `model encoded` == 1937 | `model encoded` == 3942 |`model encoded` == 15 |`model encoded` == 763 |`model encoded` == 479 |`model encoded` == 398)
-
-#smp_size <- floor(0.75 * nrow(carsToTrain))
-
 k <- 4
 indices <- sample(1:nrow(carsToTrain))
 folds <- cut(1:length(indices), breaks = k, labels = FALSE)
@@ -179,28 +173,19 @@ for(i in 1:k){
   train_y <- subset(train_y, select = c(price) )
   
   
+denormalize <- function(x,y) {
   test_x <- subset(test_x, select = -c(price))
   test_y <- subset(test_y, select = c(price))
 }
-# train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
-# 
-# train <- carsToTrain[train_ind, ]
-# test <- carsToTrain[-train_ind, ]
-# 
-# train_x <- subset(train, select = -c(price))
-# train_y <- subset(train, select = c(price) )
+
 train_y_notNormalised <- train_y
-# 
-# 
-# test_x <- subset(test, select = -c(price))
-# test_y <- subset(test, select = c(price))
+
 test_y_notNormalised <- test_y
 
 normalize <- function(x) {
   return ((x - min(x)) / (max(x) - min(x)))
 }
 
-denormalize <- function(x,y) {
   return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
 }
 
@@ -208,9 +193,6 @@ train_x <- normalize(train_x)
 train_y <- normalize(train_y)
 test_x <- normalize(test_x)
 test_y <- normalize(test_y)
-
-
-library(xgboost)
 
 train_y$price<-normalize(train_y$price)
 
