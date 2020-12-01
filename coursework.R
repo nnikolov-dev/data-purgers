@@ -66,7 +66,6 @@ MYLIBRARIES<-c("outliers",
                "SHAPforxgboost",
                "Metrics",
                "NeuralNetTools",
-               "keras",
                "kerasR",
                "visdat",
                "ggthemes",
@@ -123,15 +122,59 @@ labelEncode<-function(dataset){
   return(dataset)
 } #endof labelEncode()
 
-normalize <- function(x) {
+normalize<-function(x){
   return ((x - min(x)) / (max(x) - min(x)))
 }
 
-denormalize <- function(x,y) {
+denormalize<-function(x,y){
   return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
 }
 
-trainGradientBoost <- function(x,k){
+evalNN<-function(model, train_y, test_x, test_y, train_y_notNormalised, test_y_notNormalised){
+  denormalised <- denormalize(train_y,train_y_notNormalised)
+  
+  test_predictions <- model %>% predict(as.matrix(test_x))
+  test_predictions[ , 1]
+  
+  denormalised <- denormalize(test_predictions,train_y_notNormalised)
+  
+  # Evaluate on test data and labels and find values
+  score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
+  mean_abs_error_3 <- mae(test_y_notNormalised$price,denormalised)
+  mean_square_error_3 <- mse(test_y_notNormalised$price,denormalised)
+  # Print the mean absolute error
+  print(paste("The model in the is off by +- $" , mean_abs_error_3))
+  #Saving the scores
+  #Adding the predicted prices to the dataframe
+  test_y_notNormalisedCopy <- test_y_notNormalised
+  test_y_notNormalisedCopy$predictedPrice <- denormalised
+  #Creating a graph with price vs predicted price
+  #predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point()
+  #print(predictedPricesGraph)
+  #Removing the minus values from the dataframe
+  test_y_notNormalisedCopy <- subset(test_y_notNormalisedCopy, predictedPrice > 0)
+  #Creating a graph with price vs predicted price
+  predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point() +
+    geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)+
+    geom_abline(intercept = 2000, slope = 1, color="green",linetype="dashed", size=1.5)+
+    geom_abline(intercept = -2000, slope = 1, color="green",linetype="dashed", size=1.5)
+  print(predictedPricesGraph)
+  
+  difference <- test_y_notNormalisedCopy$price - test_y_notNormalisedCopy$predictedPrice
+  test_y_notNormalisedCopy$difference <- difference
+  
+  
+  print(sum( (-2000 < test_y_notNormalisedCopy$difference) & (test_y_notNormalisedCopy$difference < 2000)))
+  print(dim(test_y_notNormalisedCopy))
+  
+  #----------------- Comparing the NNs -----------------
+  # mae_list <- c(mean_abs_error_1, mean_abs_error_2, mean_abs_error_3)
+  # mse_list <- c(mean_square_error_1, mean_square_error_2, mean_square_error_3)
+  # barplot(mae_list, main = "Mean Absolute Error for each NN", xlab = "NN Model", ylab = "MAE", names.arg = c("Sprint 1", "Sprint 2", "Sprint 3"))
+  # barplot(mse_list, main = "Mean Square Error for each NN", xlab = "NN Model", ylab = "MSE", names.arg = c("Sprint 1", "Sprint 2", "Sprint 3"))
+}
+
+trainGradientBoost<-function(x,k){
   test_indices <- which(folds == k, arr.ind = TRUE)
   test_x <- x[test_indices,]
   test_y <- x[test_indices,]
@@ -226,6 +269,95 @@ trainGradientBoost <- function(x,k){
   print(dim(test_y_notNormalised))
 }
 
+trainNN<-function(x,k){
+  
+  test_indices <- which(folds == k, arr.ind = TRUE)
+  test_x <- x[test_indices,]
+  test_y <- x[test_indices,]
+  
+  # Prepare the training data: data from all other partitions
+  train_x <- x[-test_indices,]
+  train_y <- x[-test_indices,]
+  
+  train_x <- subset(train_x, select = -c(price))
+  train_y <- subset(train_y, select = c(price) )
+  train_y_notNormalised <- train_y
+  
+  test_x <- subset(test_x, select = -c(price))
+  test_y <- subset(test_y, select = c(price))
+  test_y_notNormalised <- test_y
+  
+  
+  train_x <- normalize(train_x)
+  train_y <- normalize(train_y)
+  test_x <- normalize(test_x)
+  test_y <- normalize(test_y)
+  
+  train_y$price<-normalize(train_y$price)
+  
+  # Initialize a sequential model
+  model <- keras_model_sequential() 
+  
+  # Add layers to the model
+  model %>% 
+    layer_dense(units = 64, input_shape = ncol(train_x)) %>%
+    layer_activation_leaky_relu() %>% 
+    layer_dense(units = 64) %>%
+    layer_dropout(0.2) %>%
+    layer_activation_leaky_relu() %>%
+    layer_dropout(0.2) %>%
+    layer_dense(units = 1, activation = "linear")
+  #layer_activation_leaky_relu()
+  
+  # Print a summary of a model
+  summary(model)
+  
+  # Get model configuration
+  get_config(model)
+  
+  # Get layer configuration
+  get_layer(model, index = 1)
+  
+  # List the model's layers
+  model$layers
+  
+  # List the input tensors
+  model$inputs
+  
+  # List the output tensors
+  model$outputs
+  
+  # Compile the model
+  model %>% compile(
+    loss = 'mse',
+    optimizer = optimizer_rmsprop(),
+    metrics = c("mse", "mae")
+  )
+  xmatrixre <- as.matrix(train_x)
+  ymatrixre <- data.matrix(train_y)
+  
+  print(dim(train_x))
+  print(dim(train_y))
+  print(ncol(train_x))
+  
+  #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
+  
+  # Fit the model 
+  history <- model %>% fit(
+    x = as.matrix(train_x),
+    y = as.matrix(train_y),
+    epochs = 100,
+    validation_split = 0.2,
+    batch_size = 16,
+    #callbacks = EarlyStopping(monitor='mae', mode = 'min', patience = 10 ,verbose = 1),
+    verbose = 1
+  )
+  #Saving the model so that it can be reused
+  model %>% save_model_tf("model3")
+  print(history)
+  evalNN(model, train_y, test_x, test_y, train_y_notNormalised, test_y_notNormalised)
+  return(model)
+}
 
 
 # This is where R starts execution
@@ -233,6 +365,10 @@ trainGradientBoost <- function(x,k){
 # Loads the libraries
 library(pacman)
 pacman::p_load(char=MYLIBRARIES,install=TRUE,character.only=TRUE)
+
+install.packages("keras")
+library(keras)
+# install_keras()
 
 # Set scientific notation to a sensible number of digits
 options(scipen=8)
@@ -339,146 +475,12 @@ mostCommonModels <- tail(names(sort(table(carsToTrain$`modelencoded`))), 30)
 carsToTrain <- subset(carsToTrain, `modelencoded` %in% mostCommonModels)
 
 smp_size <- floor(0.9 * nrow(carsToTrain))
-train_ind <- sample(seq_len(nrow(carsToTrain)), size = smp_size)
-
-train <- carsToTrain[train_ind, ]
-test <- carsToTrain[-train_ind, ]
-
-train_y_notNormalised <- subset(train, select = c(price) )
-train <- carsToTrain[train_ind, ]
-
-# Prepare the training data
-train_x <- subset(train, select = -c(price))
-train_y <- subset(train, select = c(price) )
-
-test_x <- subset(test, select = -c(price))
-test_y <- subset(test, select = c(price) )
-
-test_y_notNormalised <- test_y
-test_y_normalised <- test_y
-
-train_y$price<-normalize(train_y$price)
-test_y$price<-normalize(test_y$price)
-
-if(TRAIN_MODEL) {
-  # Initialize a sequential model
-  model <- keras_model_sequential() 
-  
-  # Add layers to the model
-  model %>% 
-    layer_dense(units = 64, input_shape = ncol(train_x)) %>%
-    layer_activation_leaky_relu() %>% 
-    layer_dense(units = 64) %>%
-    layer_dropout(0.2) %>%
-    layer_activation_leaky_relu() %>%
-    layer_dropout(0.2) %>%
-    layer_dense(units = 1, activation = "linear")
-  #layer_activation_leaky_relu()
-  
-  
-  # Print a summary of a model
-  summary(model)
-  
-  # Get model configuration
-  get_config(model)
-  
-  # Get layer configuration
-  get_layer(model, index = 1)
-  
-  # List the model's layers
-  model$layers
-  
-  # List the input tensors
-  model$inputs
-  
-  # List the output tensors
-  model$outputs
-  
-  # Compile the model
-  model %>% compile(
-    loss = 'mse',
-    optimizer = optimizer_rmsprop(),
-    metrics = c("mse", "mae")
-  )
-  xmatrixre <- as.matrix(train_x)
-  ymatrixre <- data.matrix(train_y)
-  
-  print(dim(train_x))
-  print(dim(train_y))
-  print(ncol(train_x))
-  
-  #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
-  
-  # Fit the model 
-  history <- model %>% fit(
-    x = as.matrix(train_x),
-    y = as.matrix(train_y),
-    epochs = 100,
-    validation_split = 0.2,
-    batch_size = 16,
-    #callbacks = EarlyStopping(monitor='mae', mode = 'min', patience = 10 ,verbose = 1),
-    verbose = 1,
-  )
-  #Saving the model so that it can be reused
-  model %>% save_model_tf("model3")
-  print(history)
-  
-}else
-{
-  #Reusing the saved model
-  model <- load_model_tf("model3")
-  summary(model)
-}
-
-denormalised <- denormalize(train_y,train_y_notNormalised)
-
-test_predictions <- model %>% predict(as.matrix(test_x))
-test_predictions[ , 1]
-
-denormalised <- denormalize(test_predictions,train_y_notNormalised)
-
-# Evaluate on test data and labels and find values
-score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-mean_abs_error_3 <- mae(test_y_notNormalised$price,denormalised)
-mean_square_error_3 <- mse(test_y_notNormalised$price,denormalised)
-# Print the mean absolute error
-print(paste("The model in the is off by +- $" , mean_abs_error_3))
-#Saving the scores
-#Adding the predicted prices to the dataframe
-test_y_notNormalisedCopy <- test_y_notNormalised
-test_y_notNormalisedCopy$predictedPrice <- denormalised
-#Creating a graph with price vs predicted price
-#predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point()
-#print(predictedPricesGraph)
-#Removing the minus values from the dataframe
-test_y_notNormalisedCopy <- subset(test_y_notNormalisedCopy, predictedPrice > 0)
-#Creating a graph with price vs predicted price
-predictedPricesGraph <- ggplot(data = test_y_notNormalisedCopy, aes(x = price, y = predictedPrice)) + geom_point() +
-  geom_abline(intercept = 0, slope = 1, color="red",linetype="dashed", size=1.5)+
-  geom_abline(intercept = 2000, slope = 1, color="green",linetype="dashed", size=1.5)+
-  geom_abline(intercept = -2000, slope = 1, color="green",linetype="dashed", size=1.5)
-print(predictedPricesGraph)
-
-difference <- test_y_notNormalisedCopy$price - test_y_notNormalisedCopy$predictedPrice
-test_y_notNormalisedCopy$difference <- difference
-
-
-print(sum( (-2000 < test_y_notNormalisedCopy$difference) & (test_y_notNormalisedCopy$difference < 2000)))
-print(dim(test_y_notNormalisedCopy))
-
-#----------------- Comparing the NNs -----------------
-mae_list <- c(mean_abs_error_1, mean_abs_error_2, mean_abs_error_3)
-mse_list <- c(mean_square_error_1, mean_square_error_2, mean_square_error_3)
-barplot(mae_list, main = "Mean Absolute Error for each NN", xlab = "NN Model", ylab = "MAE", names.arg = c("Sprint 1", "Sprint 2", "Sprint 3"))
-barplot(mse_list, main = "Mean Square Error for each NN", xlab = "NN Model", ylab = "MSE", names.arg = c("Sprint 1", "Sprint 2", "Sprint 3"))
-
-
 
 indices <- sample(1:nrow(carsToTrain))
 folds <- cut(1:length(indices), breaks = K_FOLDS, labels = FALSE)
 for(i in 1:K_FOLDS){
+  trainNN(carsToTrain, i)
   trainGradientBoost(carsToTrain, i)
-  
 }
 
 
