@@ -154,6 +154,12 @@ carsToTrain<-topTenCarManufacturersDF[ , !(names(topTenCarManufacturersDF) %in% 
 print("Dimension for data ready to train")
 print(dim(carsToTrain))
 
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+denormalize <- function(x,y) {
+  return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
+}
 
 CREATE_NEW_MODEL <- FALSE
 
@@ -170,24 +176,14 @@ for(i in 1:k){
   train_y <- carsToTrain[-test_indices,]
   
   train_x <- subset(train_x, select = -c(price))
-  train_y <- subset(train_y, select = c(price) )
+  train_y <- subset(train_y, select = c(price))
   
-  
-denormalize <- function(x,y) {
   test_x <- subset(test_x, select = -c(price))
   test_y <- subset(test_y, select = c(price))
-}
-
-train_y_notNormalised <- train_y
-
-test_y_notNormalised <- test_y
-
-normalize <- function(x) {
-  return ((x - min(x)) / (max(x) - min(x)))
-}
-
-  return (x * (max(y, na.rm=TRUE) - min(y, na.rm=TRUE)) + min(y, na.rm=TRUE))
-}
+  
+  train_y_notNormalised <- train_y
+  
+  test_y_notNormalised <- test_y
 
 train_x <- normalize(train_x)
 train_y <- normalize(train_y)
@@ -201,9 +197,9 @@ dtrain <- xgb.DMatrix(data = as.matrix(train_x), label=as.matrix(train_y))
 model <- xgboost(data = dtrain, max.depth = 8, eta = 0.1, nrounds = 6000, objective = "reg:squarederror", verbose = 0)
   
 denormalised <- denormalize(train_y,train_y_notNormalised)
-  
+
 test_predictions <- model %>% predict(as.matrix(test_x))
-  
+
 denormalised <- denormalize(test_predictions,train_y_notNormalised)
  
 
@@ -247,8 +243,8 @@ difference <- test_y_notNormalised$price - test_y_notNormalised$predictedPrice
 test_y_notNormalised$difference <- difference
 
 
-print(sum( (-mean_abs_error < test_y_notNormalised$difference) & (test_y_notNormalised$difference < mean_abs_error)))
-print(dim(test_y_notNormalised))
-
-
+correctlyPredicted <-sum( (-mean_abs_error < test_y_notNormalised$difference) & (test_y_notNormalised$difference < mean_abs_error))
+total<-dim(test_y_notNormalised)
+accur<- (correctlyPredicted/total)*100
+print(paste("Accuracy: %", accur))
 }
