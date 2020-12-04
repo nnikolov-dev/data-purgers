@@ -392,6 +392,7 @@ k <- 5
 indices <- sample(1:nrow(carsToTrain))
 folds <- cut(1:length(indices), breaks = k, labels = FALSE)
 scoresList <- list()
+mean_abs_error_2 <- 100000
 
 for(i in 1:k){
   print(paste("Fold number", i))
@@ -479,8 +480,6 @@ for(i in 1:k){
       batch_size = 16,
       verbose = 1,
     )
-    #Saving the model so that it can be reused
-    model %>% save_model_tf("model2")
     print(history)
 
   }else
@@ -499,8 +498,12 @@ for(i in 1:k){
 
   # Evaluate on test data and labels and find values
   score = model %>% evaluate(as.matrix(test_x), as.matrix(test_y))
-  mean_abs_error_2 <- mae(test_y_notNormalised$price,denormalised)
-  mean_square_error_2 <- mse(test_y_notNormalised$price,denormalised)
+  if(mean_abs_error_2 > mae(test_y_notNormalised$price,denormalised)) {
+    mean_abs_error_2 <- mae(test_y_notNormalised$price,denormalised)
+    mean_square_error_2 <- mse(test_y_notNormalised$price,denormalised)
+    #Saving the model so that it can be reused
+    model %>% save_model_tf("model2")
+  }
   # Print the mean absolute error
   print(paste("The model in the",i,"fold is off by +- $" , mean_abs_error_2))
   #Saving the scores
