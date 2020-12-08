@@ -331,12 +331,14 @@ trainNN<-function(train_x,train_y,test_x,test_y,train_y_notNormalised,test_y_not
   
   #train_x <- sort(table(train_x$`model encoded`),decreasing=TRUE)[1:10]
   
+  
+  
   # Fit the model 
   history<-model %>% fit(
     x=as.matrix(train_x),
     y=as.matrix(train_y),
     epochs=100,
-    validation_split=0.2,
+    validation_data = list(as.matrix(test_x),as.matrix(test_y)),
     batch_size=16,
     #callbacks = EarlyStopping(monitor='mae', mode = 'min', patience = 10 ,verbose = 1),
     verbose=1
@@ -480,12 +482,14 @@ if(TRAIN_MODEL==TRUE){
     test_y<-subset(test_y,select=c(price))
     train_y_notNormalised<-train_y
     test_y_notNormalised<-test_y
+    train_x_NN <- train_x
+    test_x_NN <- test_x
     train_x<-normalize(train_x)
     train_y<-normalize(train_y)
     test_x<-normalize(test_x)
     test_y<-normalize(test_y)
     train_y$price<-normalize(train_y$price)
-    trainNN(train_x,train_y,test_x,test_y,train_y_notNormalised,test_y_notNormalised)
+    trainNN(train_x_NN,train_y,test_x_NN,test_y,train_y_notNormalised,test_y_notNormalised)
     trainGradientBoost(train_x,train_y,test_x,test_y,train_y_notNormalised,test_y_notNormalised)
   }
 }
